@@ -1226,8 +1226,7 @@ select {
   }
 
   .dashboard-bars {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
   padding-left: 0;
   padding-right: 0;
