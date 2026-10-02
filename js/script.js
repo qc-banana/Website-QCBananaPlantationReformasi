@@ -1863,15 +1863,16 @@ if (uploadBtn && excelInput) {
   // =========================
 
   const weekFilter = document.getElementById("proppingWeekFilter");
-  const pgFilter = document.getElementById("proppingPGFilter");
-  const wilayahFilter = document.getElementById("proppingWilayahFilter");
-  const resetTable = document.getElementById("proppingTableReset");
+const pgFilter = document.getElementById("proppingPGFilter");
+const wilayahFilter = document.getElementById("proppingWilayahFilter");
+const standardFilter = document.getElementById("proppingStandardFilter");
+const resetTable = document.getElementById("proppingTableReset");
 
-  [weekFilter, pgFilter, wilayahFilter].forEach(select => {
-    select?.addEventListener("change", () => {
-      renderPropping(rows);
-    });
+[weekFilter, pgFilter, wilayahFilter, standardFilter].forEach(select => {
+  select?.addEventListener("change", () => {
+    renderPropping(rows);
   });
+});
 
   resetTable?.addEventListener("click", () => {
     if (weekFilter) weekFilter.value = "all";
@@ -2089,13 +2090,15 @@ function renderPropping(rows) {
 
   const wilayahFilter =
     document.getElementById("proppingWilayahFilter")?.value || "all";
-
+  const standardFilter =
+  document.getElementById("proppingStandardFilter")?.value || "all";
   const filtered = rows.filter(row => {
   const v = row.values || [];
 
   const pg = String(v[1] ?? "").trim();
   const wilayah = String(v[2] ?? "").trim();
   const week = String(v[7] ?? "").trim();
+  
 
   if (weekFilter !== "all" && week !== weekFilter) {
     return false;
@@ -2108,7 +2111,25 @@ function renderPropping(rows) {
   if (wilayahFilter !== "all" && wilayah !== wilayahFilter) {
     return false;
   }
+if (wilayahFilter !== "all" && wilayah !== wilayahFilter) {
+  return false;
+}
 
+const standard = v[19];
+
+if (standardFilter !== "all") {
+  const standardValue = String(standard).toLowerCase().trim();
+
+  if (standardFilter === "true" && standardValue !== "true") {
+    return false;
+  }
+
+  if (standardFilter === "false" && standardValue !== "false") {
+    return false;
+  }
+}
+
+return true;
   return true;
 });
 
