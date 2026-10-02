@@ -634,7 +634,7 @@ function formatBibitCell(v) {
   return v;
 }
 
-function FromRaw(v) {
+function percentFromRaw(v) {
   if (v === null || v === undefined || v === "") return null;
   if (typeof v === 'number') return Math.abs(v) <= 1 ? v * 100 : v;
   let s = String(v).trim().replace(/%/g, "").replace(/,/g, ".");
@@ -650,7 +650,7 @@ function latestBibitWeeks(rows, targetYear, pgName) {
 
 function averageifsBibit(rows, pg, week, year, colIndex) {
   const vals = rows.filter(r => String(bibitValue(r, 1)) === String(pg) && Number(bibitValue(r, 3)) === Number(week) && Number(bibitValue(r, 5)) === Number(year))
-    .map(r => FromRaw(bibitValue(r, colIndex)))
+    .map(r => percentFromRaw(bibitValue(r, colIndex)))
     .filter(v => v !== null);
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
@@ -2062,7 +2062,7 @@ function formatProppingDate(value) {
   return String(value);
 }
 
-function formatPropping(value) {
+function formatProppingPercent(value) {
   if (value === null || value === undefined || value === "") {
     return "";
   }
