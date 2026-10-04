@@ -58,7 +58,7 @@
       </a>
 
       <a href="propping.html" class="nav-link active">
-        🌴 <span>Propping</span>
+        🎍 <span>Propping</span>
       </a>
 
       <a href="buah-10mg.html" class="nav-link">
@@ -153,7 +153,7 @@
         </span>
 
         <h2>
-          🌴 Pengamatan Kualitas Propping
+          🎍 Pengamatan Kualitas Propping
         </h2>
 
         <p>
@@ -418,7 +418,152 @@
 
     </section>
 
+    <!-- ================================================= -->
+    <!-- GRAFIK MINIMUM & AVERAGE                         -->
+    <!-- ================================================= -->
 
+    <section class="propping-minavg-section panel">
+
+      <div class="panel-header chart-header">
+
+        <div>
+
+          <span class="eyebrow">
+            ANALISIS TERPROPPING
+          </span>
+
+          <h2>
+            📊 Minimum & Average Terproping
+          </h2>
+
+          <p>
+            Menampilkan nilai Minimum dan Average
+            untuk 5 Week terakhir pada tahun yang dipilih.
+          </p>
+
+        </div>
+
+      </div>
+       <!-- PESAN JIKA TIDAK ADA DATA -->
+      <div
+        id="proppingMinAvgEmpty"
+        class="propping-empty-message"
+        style="display:none;"
+      >
+        Belum ada data untuk ditampilkan.
+      </div>
+
+
+      <div class="propping-minavg-grid">
+
+
+        <!-- ================= PG1 ================= -->
+
+        <div class="propping-chart-card">
+
+          <div class="chart-card-title">
+
+            <h3>
+              PG1
+            </h3>
+
+            <p>
+              Minimum & Average Terproping
+            </p>
+
+          </div>
+
+          <div class="propping-chart-wrap">
+
+            <canvas id="proppingMinAvgPG1"></canvas>
+
+          </div>
+
+        </div>
+
+
+
+        <!-- ================= PG2 ================= -->
+
+        <div class="propping-chart-card">
+
+          <div class="chart-card-title">
+
+            <h3>
+              PG2
+            </h3>
+
+            <p>
+              Minimum & Average Terproping
+            </p>
+
+          </div>
+
+          <div class="propping-chart-wrap">
+
+            <canvas id="proppingMinAvgPG2"></canvas>
+
+          </div>
+
+        </div>
+
+
+
+        <!-- ================= PG3 ================= -->
+
+        <div class="propping-chart-card">
+
+          <div class="chart-card-title">
+
+            <h3>
+              PG3
+            </h3>
+
+            <p>
+              Minimum & Average Terproping
+            </p>
+
+          </div>
+
+          <div class="propping-chart-wrap">
+
+            <canvas id="proppingMinAvgPG3"></canvas>
+
+          </div>
+
+        </div>
+
+
+
+        <!-- ================= PG4 ================= -->
+
+        <div class="propping-chart-card">
+
+          <div class="chart-card-title">
+
+            <h3>
+              PG4
+            </h3>
+
+            <p>
+              Minimum & Average Terproping
+            </p>
+
+          </div>
+
+          <div class="propping-chart-wrap">
+
+            <canvas id="proppingMinAvgPG4"></canvas>
+
+          </div>
+
+        </div>
+
+
+      </div>
+
+    </section>
+    
     <!-- ================================================= -->
     <!-- FILTER TABEL                                     -->
     <!-- ================================================= -->
@@ -529,12 +674,12 @@
               Semua
             </option>
 
-            <option value="true">
-              TRUE
+            <option value="Tidak Memenuhi Standar">
+              Tidak Memenuhi Standar
             </option>
 
-            <option value="false">
-              FALSE
+            <option value="Memenuhi Standar">
+              Memenuhi Standar
             </option>
 
           </select>
@@ -633,7 +778,7 @@
       <p>
         Tabel mengikuti sheet <b>PROPING</b>.
         Grafik menggunakan nilai <b>Terproping</b>
-        pada kolom K dengan standar <b>95%</b>.
+        pada kolom J dengan standar <b>95%</b>.
       </p>
 
     </section>
