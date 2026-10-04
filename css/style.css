@@ -1226,7 +1226,8 @@ select {
   }
 
   .dashboard-bars {
-  grid-template-columns: 1fr;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   padding-left: 0;
   padding-right: 0;
@@ -1277,4 +1278,17 @@ select {
   .dashboard-propping-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.propping-empty-message {
+  min-height: 100px;
+  margin: 10px 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f7faf8;
+  border-radius: 12px;
+  color: #7b8a82;
+  font-size: 16px;
+  text-align: center;
 }
