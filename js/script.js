@@ -144,11 +144,18 @@ function normalizeBibitRow(r, i) {
 function getBibit() {
   try {
     const s = localStorage.getItem(BIBIT_KEY);
-    if (s) return JSON.parse(s).map(normalizeBibitRow);
-  } catch (e) {}
-  const seed = bibitSeed.map(normalizeBibitRow);
-  localStorage.setItem(BIBIT_KEY, JSON.stringify(seed));
-  return seed;
+
+    if (s) {
+      return JSON.parse(s).map(normalizeBibitRow);
+    }
+
+  } catch (e) {
+    console.error("Gagal membaca data Bibit dari browser:", e);
+  }
+
+  // Jika belum ada data lokal,
+  // JANGAN gunakan dummy.
+  return [];
 }
 
 function saveBibit(d) {
@@ -238,10 +245,17 @@ async function loadBibitFromSupabase(){
 
     saveBibit(rows);
 
-    console.log("Data Bibit berhasil dimuat dari Supabase.");
-    populateBibitWeekFilter();
-    renderBibit();
-    dashboard();
+console.log("Data Bibit berhasil dimuat dari Supabase.");
+
+populateBibitWeekFilter();
+
+if (document.getElementById("bibitTableBody")) {
+  renderBibit();
+}
+
+if (document.getElementById("bibitChart")) {
+  dashboard();
+}
 
   }catch(err){
     console.error("Gagal mengambil data dari Supabase:", err);
@@ -557,19 +571,43 @@ function renderBibitTableHead() {
 
 function bibitRowsFiltered() {
 
-  const y = document.getElementById("yearFilter")?.value || "all";
-  const p = document.getElementById("regionFilter")?.value || "all";
-  const w = document.getElementById("bibitWeekFilter")?.value || "all";
+  const y =
+    document.getElementById("yearFilter")?.value || "all";
+
+  const p =
+    document.getElementById("regionFilter")?.value || "all";
+
+  const w =
+    document.getElementById("bibitWeekFilter")?.value || "all";
 
   const all = getBibit();
 
-  const rows = all.filter(r =>
+  // =========================
+  // DATA UNTUK GRAFIK
+  // HANYA TAHUN + PG/WILAYAH
+  // =========================
+  const chartRows = all.filter(r =>
     (y === "all" || String(bibitValue(r, 5)) === y) &&
-    (p === "all" || String(bibitValue(r, 1)) === p) &&
-    (w === "all" || String(bibitValue(r, 3)) === w)
+    (p === "all" || String(bibitValue(r, 1)) === p)
   );
 
-  return { y, p, w, all, rows };
+  // =========================
+  // DATA UNTUK TABEL
+  // TAHUN + PG/WILAYAH + WEEK
+  // =========================
+  const rows = chartRows.filter(r =>
+    w === "all" ||
+    String(bibitValue(r, 3)) === w
+  );
+
+  return {
+    y,
+    p,
+    w,
+    all,
+    chartRows,
+    rows
+  };
 }
 function populateBibitWeekFilter() {
   const select = document.getElementById("bibitWeekFilter");
@@ -612,7 +650,7 @@ function renderBibit() {
   const body = document.getElementById("bibitTableBody");
   if (!body) return;
   renderBibitTableHead();
-  const { y, p, all, rows } = bibitRowsFiltered();
+  const { y, p, all, chartRows, rows } = bibitRowsFiltered();
   const s = staff();
   
   const recCount = document.getElementById("recordCount");
@@ -625,7 +663,7 @@ function renderBibit() {
     return `<tr>${cells}<td class="action-col">${s ? `<button class="icon-btn edit-btn" onclick="openBibitModal(${idx})">✏️ Edit</button><button class="icon-btn delete-btn" onclick="deleteBibit(${idx})">🗑️ Hapus</button>` : "-"}</td></tr>`;
   }).join("") : `<tr><td colspan="${headers.length + 1}" style="text-align:center;padding:28px;color:#7b8981">Tidak ada data untuk filter yang dipilih.</td></tr>`;
   
-  renderBibitChart(rows, y, p);
+  renderBibitChart(chartRows, y, p);
 }
 
 function formatBibitCell(v) {
@@ -849,9 +887,49 @@ function latestYear() {
   return y.length ? Math.max(...y) : new Date().getFullYear();
 }
 
-function dashboard() {
+async function dashboard() {
   const lyr = document.getElementById("latestYear");
   if (!lyr) return;
+
+  // ==========================================
+  // AMBIL DATA BIBIT DARI SUPABASE
+  // ==========================================
+
+  if (qcSupabase) {
+    try {
+      const res = await qcSupabase
+        .from("bibit_data")
+        .select("id,row_data,headers")
+        .order("id", { ascending: true });
+
+      if (res.error) throw res.error;
+
+      if (res.data && res.data.length) {
+
+        const rows = res.data.map(x => ({
+          id: x.id,
+          values: Array.isArray(x.row_data)
+            ? x.row_data
+            : (x.row_data?.values || [])
+        }));
+
+        saveBibit(rows);
+
+        const headers = res.data[0].headers;
+
+        if (Array.isArray(headers) && headers.length) {
+          saveBibitHeaders(headers);
+        }
+
+      } else {
+        localStorage.removeItem(BIBIT_KEY);
+      }
+
+    } catch (err) {
+      console.error("❌ Gagal mengambil data Bibit Dashboard:", err);
+    }
+  }
+
   const y = latestYear();
   lyr.textContent = y;
   
@@ -1604,7 +1682,7 @@ function setupSidebar() {
   document.querySelectorAll(".nav-link").forEach(a => a.onclick = close);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
 
   setupSidebar();
   setupAuth();
@@ -1624,15 +1702,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
   }
 
-  dashboard();
+  // Tunggu dashboard selesai mengambil data Bibit
+  await dashboard();
 
-  // Grafik Propping khusus Dashboard
-  dashboard();
+  // Setelah dashboard selesai,
+  // jalankan grafik Propping Dashboard
+  if (document.getElementById("dashboardProppingCharts")) {
 
-// Grafik Propping khusus Dashboard
-if (document.getElementById("dashboardProppingCharts")) {
-  window.renderDashboardPropping?.();
-}
+    if (typeof window.renderDashboardPropping === "function") {
+
+      await window.renderDashboardPropping();
+
+    } else {
+
+      console.warn("⚠️ renderDashboardPropping belum tersedia.");
+
+    }
+
+  }
 
 });
 async function importPropping(file) {
@@ -1830,10 +1917,13 @@ if (uploadBtn && excelInput) {
   updateProppingWilayahFilter(rows);
 
   // Tampilkan tabel
-  renderPropping(rows);
+renderPropping(rows);
 
-  // Tampilkan grafik
-  renderProppingCharts(rows);
+// Tampilkan grafik lama
+renderProppingCharts(rows);
+
+// Tampilkan grafik Minimum & Average
+renderProppingMinAvgCharts(rows);
 
   // =========================
   // FILTER GRAFIK
@@ -1844,8 +1934,16 @@ if (uploadBtn && excelInput) {
   const resetChart = document.getElementById("proppingChartReset");
 
   yearFilter?.addEventListener("change", () => {
-    renderProppingCharts(rows);
-  });
+    console.log("📅 TAHUN DIPILIH:", yearFilter.value);
+
+  // Grafik lama
+  renderProppingCharts(rows);
+
+  // Grafik Minimum & Average
+  renderProppingMinAvgCharts(rows);
+  renderPropping(rows);
+
+});
 
   modeFilter?.addEventListener("change", () => {
     renderProppingCharts(rows);
@@ -1862,7 +1960,7 @@ if (uploadBtn && excelInput) {
   // FILTER TABEL
   // =========================
 
-  const weekFilter = document.getElementById("proppingWeekFilter");
+const weekFilter = document.getElementById("proppingWeekFilter");
 const pgFilter = document.getElementById("proppingPGFilter");
 const wilayahFilter = document.getElementById("proppingWilayahFilter");
 const standardFilter = document.getElementById("proppingStandardFilter");
@@ -1933,6 +2031,477 @@ async function getProppingFromSupabase() {
   }));
 }
 
+// =====================================================
+// GRAFIK MINIMUM & AVERAGE TERPROPPING
+// =====================================================
+
+window.proppingMinAvgCharts =
+  window.proppingMinAvgCharts || {};
+
+function renderProppingMinAvgCharts(rows) {
+
+  console.log("📊 Render Minimum & Average Propping");
+
+  if (!Array.isArray(rows)) {
+    console.warn("⚠️ Data Propping tidak tersedia.");
+    return;
+  }
+
+  // ===============================
+  // AMBIL TAHUN YANG DIPILIH
+  // ===============================
+
+  const yearFilter =
+    document.getElementById("proppingYearFilter");
+
+  const selectedYear =
+    yearFilter?.value || "all";
+
+  // ===============================
+  // FILTER TAHUN
+  // ===============================
+
+  let yearRows = rows;
+
+  if (selectedYear !== "all") {
+
+    yearRows = rows.filter(row => {
+
+      const v = row.values || [];
+
+      const year =
+        String(v[5] ?? "").trim();
+
+      return year === String(selectedYear);
+
+    });
+  }
+  
+
+  if (!yearRows.length) {
+
+  console.warn(
+    "⚠️ Tidak ada data Propping untuk tahun:",
+    selectedYear
+  );
+
+  // Hapus chart lama
+  Object.keys(window.proppingMinAvgCharts).forEach(pg => {
+
+    if (window.proppingMinAvgCharts[pg]) {
+
+      try {
+        window.proppingMinAvgCharts[pg].destroy();
+      } catch (error) {
+        console.warn(
+          "⚠️ Gagal menghapus chart lama:",
+          error
+        );
+      }
+
+      window.proppingMinAvgCharts[pg] = null;
+    }
+
+  });
+
+  // Tampilkan pesan
+  const emptyMessage =
+    document.getElementById("proppingMinAvgEmpty");
+
+  if (emptyMessage) {
+    emptyMessage.style.display = "flex";
+  }
+
+  // Sembunyikan semua PG
+  const chartGrid =
+    document.querySelector(".propping-minavg-grid");
+
+  if (chartGrid) {
+    chartGrid.style.display = "none";
+  }
+
+  return;
+}
+
+
+// ===============================
+// ADA DATA → TAMPILKAN KEMBALI GRAFIK
+// ===============================
+
+const emptyMessage =
+  document.getElementById("proppingMinAvgEmpty");
+
+if (emptyMessage) {
+  emptyMessage.style.display = "none";
+}
+
+const chartGrid =
+  document.querySelector(".propping-minavg-grid");
+
+if (chartGrid) {
+  chartGrid.style.display = "grid";
+}
+
+  // ===============================
+  // CARI SEMUA WEEK
+  // ===============================
+
+  const weeks = [
+    ...new Set(
+      yearRows
+        .map(row => {
+
+          const v = row.values || [];
+
+          return String(v[7] ?? "").trim();
+
+        })
+        .filter(Boolean)
+    )
+  ];
+
+  // ===============================
+  // URUTKAN WEEK
+  // ===============================
+
+  weeks.sort((a, b) => {
+
+    const na =
+      parseInt(String(a).replace(/\D/g, ""), 10);
+
+    const nb =
+      parseInt(String(b).replace(/\D/g, ""), 10);
+
+    if (Number.isNaN(na)) {
+      return String(a).localeCompare(String(b));
+    }
+
+    if (Number.isNaN(nb)) {
+      return String(a).localeCompare(String(b));
+    }
+
+    return na - nb;
+  });
+
+  // ===============================
+  // AMBIL 5 WEEK TERAKHIR
+  // ===============================
+
+  const latestWeeks =
+    weeks.slice(-5);
+
+  console.log(
+    "📅 5 Week terakhir:",
+    latestWeeks
+  );
+
+  // ===============================
+  // PG
+  // ===============================
+
+  const pgs = [
+    "PG1",
+    "PG2",
+    "PG3",
+    "PG4"
+  ];
+
+  pgs.forEach(pg => {
+
+    const labels = [];
+    const averageData = [];
+    const minimumData = [];
+
+    // =============================
+    // HITUNG SETIAP WEEK
+    // =============================
+
+    latestWeeks.forEach(week => {
+
+      const matchedRows =
+        yearRows.filter(row => {
+
+          const v =
+            row.values || [];
+
+          const rowPG =
+            String(v[1] ?? "").trim();
+
+          const rowWeek =
+            String(v[7] ?? "").trim();
+
+          return (
+            rowPG === pg &&
+            rowWeek === week
+          );
+
+        });
+
+      // ===========================
+      // AMBIL TERPROPING
+      // KOLOM J = INDEX 9
+      // ===========================
+
+      const values =
+        matchedRows
+          .map(row => {
+
+            const v =
+              row.values || [];
+
+            const value =
+              Number(v[9]);
+
+            return Number.isFinite(value)
+              ? value
+              : null;
+
+          })
+          .filter(
+            value => value !== null
+          );
+
+      labels.push(
+        `Week ${week}`
+      );
+
+      // Tidak ada data
+      if (!values.length) {
+
+        averageData.push(null);
+        minimumData.push(null);
+
+        return;
+      }
+
+      // ===========================
+      // AVERAGE
+      // ===========================
+
+      const average =
+        values.reduce(
+          (sum, value) =>
+            sum + value,
+          0
+        ) / values.length;
+
+      // ===========================
+      // MINIMUM
+      // ===========================
+
+      const minimum =
+        Math.min(...values);
+
+      // Excel menyimpan persen
+      // sebagai decimal.
+      // Contoh:
+      // 0.95 = 95%
+      //
+      // Chart menggunakan:
+      // 95 bukan 0.95
+
+      averageData.push(
+        average * 100
+      );
+
+      minimumData.push(
+        minimum * 100
+      );
+
+    });
+
+    // =============================
+    // CARI CANVAS
+    // =============================
+
+    const canvas =
+      document.getElementById(
+        `proppingMinAvg${pg}`
+      );
+
+    if (!canvas) {
+
+      console.warn(
+        `⚠️ Canvas ${pg} tidak ditemukan`
+      );
+
+      return;
+    }
+
+    // =============================
+    // HAPUS CHART LAMA
+    // =============================
+
+    if (
+      window.proppingMinAvgCharts[pg]
+    ) {
+
+      try {
+
+        window.proppingMinAvgCharts[pg]
+          .destroy();
+
+      } catch (error) {
+
+        console.warn(
+          "⚠️ Gagal destroy chart lama:",
+          error
+        );
+
+      }
+
+    }
+
+    // =============================
+    // BUAT CHART
+    // =============================
+
+    window.proppingMinAvgCharts[pg] =
+      new Chart(canvas, {
+
+        type: "line",
+
+        data: {
+
+          labels: labels,
+
+          datasets: [
+
+            {
+              label: "Average",
+
+              data: averageData,
+
+              borderWidth: 3,
+
+              tension: 0.25,
+
+              fill: false,
+
+              pointRadius: 4
+            },
+
+            {
+              label: "Minimum",
+
+              data: minimumData,
+
+              borderWidth: 3,
+
+              tension: 0.25,
+
+              fill: false,
+
+              pointRadius: 4
+            }
+
+          ]
+
+        },
+
+        options: {
+
+          responsive: true,
+
+          maintainAspectRatio: false,
+
+          interaction: {
+
+            mode: "index",
+
+            intersect: false
+
+          },
+
+          scales: {
+
+            y: {
+
+              min: 0,
+
+              max: 120,
+
+              ticks: {
+
+                callback: function(value) {
+
+                  return value + "%";
+
+                }
+
+              },
+
+              title: {
+
+                display: true,
+
+                text: "Terproping (%)"
+
+              }
+
+            },
+
+            x: {
+
+              title: {
+
+                display: true,
+
+                text: "Week"
+
+              }
+
+            }
+
+          },
+
+          plugins: {
+
+            legend: {
+
+              display: true,
+
+              position: "top"
+
+            },
+
+            tooltip: {
+
+              callbacks: {
+
+                label: function(context) {
+
+                  const value =
+                    context.parsed.y;
+
+                  if (value === null) {
+
+                    return (
+                      `${context.dataset.label}: -`
+                    );
+
+                  }
+
+                  return (
+                    `${context.dataset.label}: ` +
+                    `${value.toFixed(2)}%`
+                  );
+
+                }
+
+              }
+
+            }
+
+          }
+
+        }
+
+      });
+
+  });
+
+}
 
 // =====================================================
 // FILTER WEEK
@@ -2081,6 +2650,8 @@ function renderPropping(rows) {
   const tbody = document.getElementById("proppingTableBody");
 
   if (!tbody) return;
+  const yearFilter =
+  document.getElementById("proppingYearFilter")?.value || "all";
 
   const weekFilter =
     document.getElementById("proppingWeekFilter")?.value || "all";
@@ -2094,12 +2665,14 @@ function renderPropping(rows) {
   document.getElementById("proppingStandardFilter")?.value || "all";
   const filtered = rows.filter(row => {
   const v = row.values || [];
-
+  const year = String(v[5] ?? "").trim();
   const pg = String(v[1] ?? "").trim();
   const wilayah = String(v[2] ?? "").trim();
   const week = String(v[7] ?? "").trim();
   
-
+  if (yearFilter !== "all" && year !== yearFilter) {
+  return false;
+}
   if (weekFilter !== "all" && week !== weekFilter) {
     return false;
   }
@@ -2111,22 +2684,18 @@ function renderPropping(rows) {
   if (wilayahFilter !== "all" && wilayah !== wilayahFilter) {
     return false;
   }
-if (wilayahFilter !== "all" && wilayah !== wilayahFilter) {
-  return false;
-}
 
 const standard = v[19];
 
 if (standardFilter !== "all") {
+
   const standardValue = String(standard).toLowerCase().trim();
+  const selectedStandard = String(standardFilter).toLowerCase().trim();
 
-  if (standardFilter === "true" && standardValue !== "true") {
+  if (standardValue !== selectedStandard) {
     return false;
   }
 
-  if (standardFilter === "false" && standardValue !== "false") {
-    return false;
-  }
 }
 
 return true;
