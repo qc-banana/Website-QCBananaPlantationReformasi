@@ -1308,3 +1308,48 @@ select {
   font-size: 16px;
   text-align: center;
 }
+
+/* ================================================= */
+/* GRAFIK LOKASI - 2 KOLOM */
+/* ================================================= */
+
+#proppingLocationRejectGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+/* Tinggi grafik lokasi dibuat lebih pendek */
+#proppingLocationRejectGrid .propping-chart-wrap {
+  height: 260px;
+}
+
+/* Kalau layar kecil, kembali 1 kolom */
+@media (max-width: 900px) {
+  #proppingLocationRejectGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ================================================= */
+/* MINIMUM & AVERAGE - 2 KOLOM */
+/* ================================================= */
+
+.propping-minavg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.propping-minavg-grid .propping-chart-wrap {
+  height: 260px;
+}
+
+/* Layar kecil → 1 kolom */
+@media (max-width: 900px) {
+  .propping-minavg-grid {
+    grid-template-columns: 1fr;
+  }
+}
