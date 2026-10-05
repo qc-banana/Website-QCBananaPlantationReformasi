@@ -1924,6 +1924,7 @@ renderProppingCharts(rows);
 
 // Tampilkan grafik Minimum & Average
 renderProppingMinAvgCharts(rows);
+renderProppingLocationRejectCharts(rows);
 
   // =========================
   // FILTER GRAFIK
@@ -1941,6 +1942,7 @@ renderProppingMinAvgCharts(rows);
 
   // Grafik Minimum & Average
   renderProppingMinAvgCharts(rows);
+  renderProppingLocationRejectCharts(rows);
   renderPropping(rows);
 
 });
@@ -2502,7 +2504,517 @@ if (chartGrid) {
   });
 
 }
+// =====================================================
+// GRAFIK LOKASI / BLOCK TIDAK MEMENUHI STANDAR
+// =====================================================
 
+window.proppingLocationRejectCharts =
+  window.proppingLocationRejectCharts || {};
+
+function renderProppingLocationRejectCharts(rows) {
+
+  console.log("📊 Render Lokasi Tidak Memenuhi Standar");
+
+  if (!Array.isArray(rows)) {
+    console.warn("⚠️ Data Propping tidak tersedia.");
+    return;
+  }
+
+  // ===================================================
+  // AMBIL TAHUN YANG DIPILIH
+  // ===================================================
+
+  const yearFilter =
+    document.getElementById("proppingYearFilter");
+
+  const selectedYear =
+    yearFilter?.value || "all";
+
+
+  // ===================================================
+  // FILTER TAHUN
+  // ===================================================
+
+  let yearRows = rows;
+
+  if (selectedYear !== "all") {
+
+    yearRows = rows.filter(row => {
+
+      const v = row.values || [];
+
+      const year =
+        String(v[5] ?? "").trim();
+
+      return year === String(selectedYear);
+
+    });
+
+  }
+
+
+  // ===================================================
+  // CARI WEEK TERBARU
+  // ===================================================
+
+  const weeks = [
+    ...new Set(
+
+      yearRows
+        .map(row => {
+
+          const v = row.values || [];
+
+          return String(v[7] ?? "").trim();
+
+        })
+        .filter(Boolean)
+
+    )
+  ];
+
+
+  weeks.sort((a, b) => {
+
+    const na =
+      parseInt(
+        String(a).replace(/\D/g, ""),
+        10
+      );
+
+    const nb =
+      parseInt(
+        String(b).replace(/\D/g, ""),
+        10
+      );
+
+    if (Number.isNaN(na)) {
+      return String(a).localeCompare(String(b));
+    }
+
+    if (Number.isNaN(nb)) {
+      return String(a).localeCompare(String(b));
+    }
+
+    return na - nb;
+
+  });
+
+
+  const latestWeek =
+  weeks[weeks.length - 1];
+
+console.log(
+  "📅 Week terbaru lokasi:",
+  latestWeek
+);
+
+
+// ===================================================
+// TAMPILKAN / SEMBUNYIKAN PESAN DATA KOSONG
+// ===================================================
+
+const emptyMessage =
+  document.getElementById(
+    "proppingLocationRejectEmpty"
+  );
+
+const chartGrid =
+  document.getElementById(
+    "proppingLocationRejectGrid"
+  );
+
+
+// Tidak ada data untuk tahun yang dipilih
+if (!yearRows.length || !latestWeek) {
+
+  // Hapus chart lama
+  Object.keys(
+    window.proppingLocationRejectCharts
+  ).forEach(pg => {
+
+    if (
+      window.proppingLocationRejectCharts[pg]
+    ) {
+
+      try {
+
+        window.proppingLocationRejectCharts[pg]
+          .destroy();
+
+      } catch (error) {
+
+        console.warn(
+          "⚠️ Gagal menghapus chart lokasi:",
+          error
+        );
+
+      }
+
+      window.proppingLocationRejectCharts[pg] =
+        null;
+
+    }
+
+  });
+
+
+  // Tampilkan pesan
+  if (emptyMessage) {
+    emptyMessage.style.display = "flex";
+  }
+
+
+  // Sembunyikan grafik
+  if (chartGrid) {
+    chartGrid.style.display = "none";
+  }
+
+
+  return;
+
+}
+
+
+// ===================================================
+// KALAU DATA ADA
+// ===================================================
+
+if (emptyMessage) {
+  emptyMessage.style.display = "none";
+}
+
+if (chartGrid) {
+  chartGrid.style.display = "";
+}
+
+
+  // ===================================================
+  // PG1 - PG4
+  // ===================================================
+
+  const pgs = [
+    "PG1",
+    "PG2",
+    "PG3",
+    "PG4"
+  ];
+
+
+  pgs.forEach(pg => {
+
+    // =================================================
+    // CARI DATA PG + WEEK TERBARU
+    // =================================================
+
+    const matchedRows =
+      yearRows.filter(row => {
+
+        const v =
+          row.values || [];
+
+        const rowPG =
+          String(v[1] ?? "").trim();
+
+        const rowWeek =
+          String(v[7] ?? "").trim();
+
+        return (
+          rowPG === pg &&
+          rowWeek === latestWeek
+        );
+
+      });
+
+
+    // =================================================
+    // KELOMPOKKAN BERDASARKAN BLOCK
+    // =================================================
+
+    const blockData = {};
+
+
+    matchedRows.forEach(row => {
+
+      const v =
+        row.values || [];
+
+
+      // Block = index 3
+      const block =
+        String(v[3] ?? "").trim();
+
+
+      // Terproping = index 9
+      const terproping =
+        Number(v[9]);
+
+
+      if (!block) return;
+
+      if (!Number.isFinite(terproping)) {
+        return;
+      }
+
+
+      if (!blockData[block]) {
+        blockData[block] = [];
+      }
+
+
+      blockData[block].push(
+        terproping
+      );
+
+    });
+
+
+    // =================================================
+    // HITUNG RATA-RATA TERPROPPING PER BLOCK
+    // =================================================
+
+    const rejectedBlocks = [];
+
+
+    Object.entries(blockData).forEach(
+      ([block, values]) => {
+
+        const average =
+          values.reduce(
+            (sum, value) =>
+              sum + value,
+            0
+          ) / values.length;
+
+
+        const averagePercent =
+          average * 100;
+
+
+        // HANYA YANG DI BAWAH 95%
+        if (averagePercent < 95) {
+
+          rejectedBlocks.push({
+
+            block: block,
+
+            value: averagePercent
+
+          });
+
+        }
+
+      }
+    );
+
+
+    // =================================================
+    // URUTKAN DARI TERENDAH
+    // =================================================
+
+    rejectedBlocks.sort(
+      (a, b) =>
+        a.value - b.value
+    );
+
+
+    // =================================================
+    // MAKSIMAL 10 BLOCK
+    // =================================================
+
+    const top10Blocks =
+      rejectedBlocks.slice(0, 10);
+
+
+    console.log(
+      `${pg} - Block <95%:`,
+      top10Blocks
+    );
+
+
+    // =================================================
+    // DATA UNTUK CHART
+    // =================================================
+
+    const labels =
+      top10Blocks.map(
+        item => item.block
+      );
+
+
+    const values =
+      top10Blocks.map(
+        item => item.value
+      );
+
+
+    // =================================================
+    // CARI CANVAS
+    // =================================================
+
+    const canvas =
+      document.getElementById(
+        `proppingLocationReject${pg}`
+      );
+
+
+    if (!canvas) {
+
+      console.warn(
+        `⚠️ Canvas lokasi ${pg} tidak ditemukan`
+      );
+
+      return;
+
+    }
+
+
+    // =================================================
+    // HAPUS CHART LAMA
+    // =================================================
+
+    if (
+      window.proppingLocationRejectCharts[pg]
+    ) {
+
+      try {
+
+        window.proppingLocationRejectCharts[pg]
+          .destroy();
+
+      } catch (error) {
+
+        console.warn(
+          "⚠️ Gagal destroy chart lokasi:",
+          error
+        );
+
+      }
+
+    }
+
+
+    // =================================================
+    // BUAT CHART
+    // =================================================
+
+    window.proppingLocationRejectCharts[pg] =
+      new Chart(canvas, {
+
+        type: "bar",
+
+        data: {
+
+          labels: labels,
+
+          datasets: [
+
+            {
+
+              label: "Terproping",
+
+              data: values,
+
+              borderWidth: 1
+
+            }
+
+          ]
+
+        },
+
+
+        options: {
+
+          responsive: true,
+
+          maintainAspectRatio: false,
+
+
+          scales: {
+
+            y: {
+
+              min: 0,
+
+              max: 100,
+
+              ticks: {
+
+                callback:
+                  function(value) {
+
+                    return value + "%";
+
+                  }
+
+              },
+
+              title: {
+
+                display: true,
+
+                text: "Terproping (%)"
+
+              }
+
+            },
+
+
+            x: {
+
+              title: {
+
+                display: true,
+
+                text: "Block"
+
+              }
+
+            }
+
+          },
+
+
+          plugins: {
+
+            legend: {
+
+              display: false
+
+            },
+
+
+            tooltip: {
+
+              callbacks: {
+
+                label:
+                  function(context) {
+
+                    const value =
+                      context.parsed.y;
+
+                    return (
+                      `Terproping: ` +
+                      `${value.toFixed(2)}%`
+                    );
+
+                  }
+
+              }
+
+            }
+
+          }
+
+        }
+
+      });
+
+  });
+
+}
 // =====================================================
 // FILTER WEEK
 // Excel I = index 8
