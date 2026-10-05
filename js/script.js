@@ -2907,19 +2907,16 @@ if (chartGrid) {
 
           labels: labels,
 
-          datasets: [
+          datasets: [{
+            label: "Terproping",
+            data: values,
 
-            {
+            borderWidth: 1,
 
-              label: "Terproping",
-
-              data: values,
-
-              borderWidth: 1
-
-            }
-
-          ]
+            barPercentage: 0.55,
+            categoryPercentage: 0.65,
+            maxBarThickness: 35
+          }]
 
         },
 
