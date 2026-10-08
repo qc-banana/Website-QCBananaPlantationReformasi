@@ -1,184 +1,910 @@
 <!doctype html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Agronomi - QC Banana</title>
+
   <link rel="stylesheet" href="../css/style.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
+
+  <!-- =========================
+       SIDEBAR OVERLAY
+  ========================== -->
   <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
+
+  <!-- =========================
+       SIDEBAR
+  ========================== -->
   <aside id="sidebar" class="sidebar">
+
     <div class="brand">
-      <div class="brand-icon">🍌</div>
+
+      <img
+        src="images/logoGGF.webp"
+        class="banana-icon"
+        alt="GGF Logo"
+      >
+
       <div>
         <strong>QC Banana Reformasi</strong>
         <span>Quality Control</span>
       </div>
+
     </div>
+
+
     <nav class="sidebar-nav">
-      <a href="../index.html" class="nav-link">🏠 <span>Dashboard</span></a>
-      <div class="nav-section-title">📊 DATA QC</div>
-      <a href="bibit.html" class="nav-link">🌱 <span>Pengamatan Bibit</span></a>
-      <a href="agronomi.html" class="nav-link active">🌿 <span>Agronomi</span></a>
-      <a href="bud-injection.html" class="nav-link">💉 <span>Bud Injection</span></a>
-      <a href="propping.html" class="nav-link">🌴 <span>Propping</span></a>
-      <a href="buah-10mg.html" class="nav-link">🍌 <span>Buah 10 MG Shooting</span></a>
+
+      <a href="../index.html" class="nav-link">
+        🏠
+        <span>Dashboard</span>
+      </a>
+
+
+      <div class="nav-section-title">
+        📊 DATA QC
+      </div>
+
+
+      <a href="bibit.html" class="nav-link">
+        🌱
+        <span>Pengamatan Bibit</span>
+      </a>
+
+
+      <a href="agronomi.html" class="nav-link active">
+        🌿
+        <span>Agronomi</span>
+      </a>
+
+
+      <a href="bud-injection.html" class="nav-link">
+        💉
+        <span>Bud Injection</span>
+      </a>
+
+
+      <a href="propping.html" class="nav-link">
+        🌴
+        <span>Propping</span>
+      </a>
+
+
+      <a href="buah-10mg.html" class="nav-link">
+        🍌
+        <span>Buah 10 MG Shooting</span>
+      </a>
+
     </nav>
+
+
+    <!-- =========================
+         SIDEBAR USER
+    ========================== -->
+
     <div class="sidebar-bottom">
+
       <div id="sidebarUserStatus" class="user-status">
         <span>👤</span>
         <span>Pengunjung</span>
       </div>
-      <button id="sidebarLoginBtn" class="btn btn-primary btn-full">🔐 Login Petugas</button>
-      <button id="sidebarLogoutBtn" class="btn btn-danger btn-full hidden">↪ Logout</button>
+
+
+      <button
+        id="sidebarLoginBtn"
+        class="btn btn-primary btn-full"
+      >
+        🔐 Login Petugas
+      </button>
+
+
+      <button
+        id="sidebarLogoutBtn"
+        class="btn btn-danger btn-full hidden"
+      >
+        ↪ Logout
+      </button>
+
     </div>
+
   </aside>
 
+
+
+  <!-- =========================
+       MAIN CONTENT
+  ========================== -->
+
   <main class="main-content">
+
+
+    <!-- =========================
+         TOPBAR
+    ========================== -->
+
     <header class="topbar">
-      <button id="menuToggle" class="menu-toggle">☰</button>
+
+      <button
+        id="menuToggle"
+        class="menu-toggle"
+      >
+        ☰
+      </button>
+
+
       <div class="topbar-title">
-        <span class="eyebrow">DATA QUALITY CONTROL</span>
-        <h1>QC Banana Planation</h1>
+
+        <span class="eyebrow">
+          DATA QUALITY CONTROL
+        </span>
+
+        <h1>
+          QC Banana Plantation
+        </h1>
+
       </div>
+
+
       <div class="topbar-actions">
-        <div id="topUserStatus" class="status-pill">👤 Pengunjung</div>
-        <button id="loginBtn" class="btn btn-primary">🔐 Login Petugas</button>
-        <button id="logoutBtn" class="btn btn-danger hidden">↪ Logout</button>
+
+        <div
+          id="topUserStatus"
+          class="status-pill"
+        >
+          👤 Pengunjung
+        </div>
+
+
+        <button
+          id="loginBtn"
+          class="btn btn-primary"
+        >
+          🔐 Login Petugas
+        </button>
+
+
+        <button
+          id="logoutBtn"
+          class="btn btn-danger hidden"
+        >
+          ↪ Logout
+        </button>
+
       </div>
+
     </header>
 
+
+
+    <!-- =========================
+         PAGE HEADER
+    ========================== -->
+
     <section class="page-header">
+
       <div>
-        <span class="eyebrow">DATA QC</span>
-        <h2>🌿 Agronomi</h2>
-        <p>Monitoring parameter agronomi dan kondisi tanaman.</p>
+
+        <span class="eyebrow">
+          DATA QC
+        </span>
+
+        <h2>
+          🌿 Agronomi
+        </h2>
+
+        <p>
+          Monitoring dan analisis data agronomi tanaman.
+        </p>
+
       </div>
+
+
       <div class="page-actions">
-        <button id="uploadExcelBtn" class="btn btn-light staff-only hidden">📤 Upload Excel/CSV</button>
-        <input id="excelFileInput" class="hidden" type="file" accept=".xlsx,.xls,.csv">
-        <button id="addDataBtn" class="btn btn-primary staff-only hidden">＋ Tambah Data</button>
+
+        <button
+          id="uploadExcelBtn"
+          class="btn btn-light staff-only hidden"
+        >
+          📤 Upload Excel
+        </button>
+
+
+        <input
+          id="excelFileInput"
+          class="hidden"
+          type="file"
+          accept=".xlsx,.xls,.csv"
+        >
+
+
+        <button
+          id="addDataBtn"
+          class="btn btn-primary staff-only hidden"
+        >
+          ＋ Tambah Data
+        </button>
+
       </div>
+
     </section>
+
+
+
+    <!-- =========================
+         FILTER
+    ========================== -->
 
     <section class="filter-bar">
+
+
+      <!-- TAHUN -->
+
       <div class="filter-group">
-        <label for="yearFilter">📅 TAHUN</label>
-        <select id="yearFilter">
-          <option value="all">Semua Tahun</option>
-          <option value="2022">2022</option>
-          <option value="2023">2023</option>
-          <option value="2024">2024</option>
-          <option value="2025">2025</option>
-          <option value="2026">2026</option>
+
+        <label for="agronomiYearFilter">
+          📅 TAHUN
+        </label>
+
+
+        <select id="agronomiYearFilter">
+
+          <option value="all">
+            Semua Tahun
+          </option>
+
+          <option value="2022">
+            2022
+          </option>
+
+          <option value="2023">
+            2023
+          </option>
+
+          <option value="2024">
+            2024
+          </option>
+
+          <option value="2025">
+            2025
+          </option>
+
+          <option value="2026">
+            2026
+          </option>
+
         </select>
+
       </div>
+
+
+
+      <!-- UMUR ANALISIS -->
+
       <div class="filter-group">
-        <label for="regionFilter">📍 WILAYAH / PG</label>
-        <select id="regionFilter">
-          <option value="all">Semua Wilayah</option>
-          <option value="PG1">PG1</option>
-          <option value="PG2">PG2</option>
-          <option value="PG3">PG3</option>
-          <option value="PG4">PG4</option>
+
+        <label for="agronomiAgeFilter">
+          🌿 UMUR ANALISIS
+        </label>
+
+
+        <select id="agronomiAgeFilter">
+          <option value="all">
+            Semua
+          </option>
+
+          <option value="2PSFC">
+            2 Bulan PSFC
+          </option>
+
+          <option value="4PSFC">
+            4 Bulan PSFC
+          </option>
+
+          <option value="4PSSC">
+            4 Bulan PSSC
+          </option>
+
         </select>
+
       </div>
-      <button id="resetFilters" class="btn filter-reset">↻ Reset Filter</button>
+
+
+      <!-- RESET -->
+
+      <button
+        id="agronomiResetFilters"
+        class="btn filter-reset"
+      >
+        ↻ Reset Filter
+      </button>
+
     </section>
 
-    <section class="table-panel">
+
+
+    <!-- =================================================
+         GRAFIK AGRONOMI
+    ================================================== -->
+
+    <section class="propping-chart-panel panel">
+
+
+      <div class="panel-header chart-header">
+
+        <div>
+
+          <span class="eyebrow">
+            ANALISIS AGRONOMI
+          </span>
+
+          <h2>
+            📊 Analisis Quartal
+          </h2>
+
+          <p>
+            Perbandingan hasil agronomi PG1, PG2, PG3,
+            dan PG4 berdasarkan Quartal.
+          </p>
+
+        </div>
+
+      </div>
+      <div class="agronomi-chart-grid">
+
+      <!-- =========================
+           CHART 1
+           DOWN GRADE
+      ========================== -->
+
+      <div class="agronomi-chart-card">
+
+        <div class="chart-card-title">
+
+          <h3>
+            Down Grade
+          </h3>
+
+          <span>
+            ≤ 13 CM
+          </span>
+
+        </div>
+
+
+        <div class="propping-chart-wrap">
+
+          <canvas
+            id="agronomiDownGradeChart"
+          ></canvas>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- =========================
+           CHART 2
+           UNDER STANDARD
+      ========================== -->
+
+      <div class="agronomi-chart-card">
+
+        <div class="chart-card-title">
+
+          <h3>
+            Under Standard
+          </h3>
+
+          <span>
+            Sesuai kategori umur
+          </span>
+
+        </div>
+
+
+        <div class="propping-chart-wrap">
+
+          <canvas
+            id="agronomiUnderStandardChart"
+          ></canvas>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- =========================
+           CHART 3
+           STANDARD
+      ========================== -->
+
+      <div class="agronomi-chart-card">
+
+        <div class="chart-card-title">
+
+          <h3>
+            Standard
+          </h3>
+
+          <span>
+            Sesuai kategori umur
+          </span>
+
+        </div>
+
+
+        <div class="propping-chart-wrap">
+
+          <canvas
+            id="agronomiStandardChart"
+          ></canvas>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- =========================
+           CHART 4
+           SATISFACTORY
+      ========================== -->
+
+      <div class="agronomi-chart-card">
+
+        <div class="chart-card-title">
+
+          <h3>
+            Satisfactory
+          </h3>
+
+          <span>
+            Sesuai kategori umur
+          </span>
+
+        </div>
+
+
+        <div class="propping-chart-wrap">
+
+          <canvas
+            id="agronomiSatisfactoryChart"
+          ></canvas>
+
+        </div>
+
+      </div>
+    </div>
+
+    </section>
+
+
+
+    <!-- =================================================
+         TABEL DATA PER WEEK
+    ================================================== -->
+
+    <section class="table-panel panel">
+
+
       <div class="table-toolbar">
-        <div class="table-note">Filter diterapkan pada tabel. Petugas juga dapat Upload Excel/CSV atau Edit data.</div>
-        <div class="table-note"><b id="recordCount">0</b> data tampil</div>
+
+
+        <div>
+
+          <span class="eyebrow">
+            DATA AGRONOMI
+          </span>
+
+          <h2>
+            Data Per Week
+          </h2>
+
+        </div>
+
+
+        <div class="table-note">
+
+          <b id="agronomiRecordCount">
+            0
+          </b>
+
+          data tampil
+
+        </div>
+
       </div>
+
+
+
       <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Tanggal</th>
-              <th>Tahun</th>
-              <th>Wilayah / PG</th>
-              <th>Lokasi</th>
-              <th>Parameter</th>
-              <th>Hasil</th>
-              <th>Status</th>
-              <th id="actionHead" class="hidden">Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="dataTableBody"></tbody>
-        </table>
-      </div>
+
+  <!-- FILTER KHUSUS TABEL -->
+  <div class="agronomi-table-filters">
+
+    <div class="filter-group">
+      <label for="agronomiPGFilter">PG</label>
+      <select id="agronomiPGFilter">
+        <option value="all">Semua PG</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="agronomiWilayahFilter">Wilayah</label>
+      <select id="agronomiWilayahFilter">
+        <option value="all">Semua Wilayah</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="agronomiWeekFilter">Week</label>
+      <select id="agronomiWeekFilter">
+        <option value="all">Semua Week</option>
+      </select>
+    </div>
+
+    <button
+      type="button"
+      id="agronomiTableReset"
+      class="secondary-btn"
+    >
+      ↻ Reset Filter
+    </button>
+
+  </div>
+
+
+  <table class="data-table">
+
+    <thead id="agronomiTableHead">
+
+      <!-- Header akan diisi berdasarkan
+           data Excel Data Per week -->
+
+    </thead>
+
+    <tbody id="agronomiTableBody">
+      <tr>
+        <td colspan="20" class="table-loading">
+          Memuat data...
+        </td>
+      </tr>
+    </tbody>
+
+  </table>
+
+</div>
+
     </section>
 
-    <footer class="footer">QC Banana • Data demo disimpan di localStorage browser</footer>
+
+
+    <!-- =========================
+         FOOTER
+    ========================== -->
+
+    <footer class="footer">
+
+      QC Banana • Data Agronomi
+
+    </footer>
+
+
   </main>
 
-  <div id="loginModal" class="modal hidden">
-    <div class="modal-backdrop" data-close-login></div>
+
+
+  <!-- =================================================
+       LOGIN MODAL
+  ================================================== -->
+
+  <div
+    id="loginModal"
+    class="modal hidden"
+  >
+
+    <div
+      class="modal-backdrop"
+      data-close-login
+    ></div>
+
+
     <div class="modal-dialog">
-      <button class="modal-close" data-close-login>×</button>
-      <div class="modal-icon">🔐</div>
-      <h2>Login Petugas</h2>
-      <p>Masuk untuk mendapatkan akses tambah, edit, dan hapus data.</p>
+
+      <button
+        class="modal-close"
+        data-close-login
+      >
+        ×
+      </button>
+
+
+      <div class="modal-icon">
+        🔐
+      </div>
+
+
+      <h2>
+        Login Petugas
+      </h2>
+
+
+      <p>
+        Masuk untuk mendapatkan akses pengelolaan
+        data QC.
+      </p>
+
+
       <form id="loginForm">
-        <label>Username</label>
-        <input id="username" required>
-        <label>Password</label>
-        <input id="password" type="password" required>
-        <div id="loginError" class="form-error hidden"></div>
-        <button class="btn btn-primary btn-full">Login</button>
+
+        <label>
+          Username
+        </label>
+
+        <input
+          id="username"
+          required
+        >
+
+
+        <label>
+          Password
+        </label>
+
+        <input
+          id="password"
+          type="password"
+          required
+        >
+
+
+        <div
+          id="loginError"
+          class="form-error hidden"
+        ></div>
+
+
+        <button
+          class="btn btn-primary btn-full"
+        >
+          Login
+        </button>
+
       </form>
-      <div class="demo-credential">Demo: <b>petugas</b> / <b>qcbanana</b></div>
+
+
+      <div class="demo-credential">
+
+        Demo:
+        <b>petugas</b>
+        /
+        <b>qcbanana</b>
+
+      </div>
+
     </div>
+
   </div>
 
-  <div id="dataModal" class="modal hidden">
-    <div class="modal-backdrop" data-close-data></div>
+
+
+  <!-- =================================================
+       TAMBAH / EDIT DATA
+  ================================================== -->
+
+  <div
+    id="dataModal"
+    class="modal hidden"
+  >
+
+    <div
+      class="modal-backdrop"
+      data-close-data
+    ></div>
+
+
     <div class="modal-dialog">
-      <button class="modal-close" data-close-data>×</button>
-      <div class="modal-icon">📝</div>
-      <h2 id="dataModalTitle">Tambah Data QC</h2>
-      <p>Isi data pengamatan. Data disimpan di browser.</p>
+
+      <button
+        class="modal-close"
+        data-close-data
+      >
+        ×
+      </button>
+
+
+      <div class="modal-icon">
+        📝
+      </div>
+
+
+      <h2 id="dataModalTitle">
+        Tambah Data Agronomi
+      </h2>
+
+
+      <p>
+        Tambahkan data agronomi secara manual.
+      </p>
+
+
       <form id="dataForm">
-        <input type="hidden" id="editIndex">
-        <label>Tanggal</label>
-        <input id="dataTanggal" placeholder="30/09/2026" required>
-        <label>Tahun</label>
+
+        <input
+          type="hidden"
+          id="editIndex"
+        >
+
+
+        <label>
+          Tanggal
+        </label>
+
+        <input
+          id="dataTanggal"
+          placeholder="30/09/2026"
+          required
+        >
+
+
+        <label>
+          Tahun
+        </label>
+
         <select id="dataTahun">
-          <option>2022</option>
-          <option>2023</option>
-          <option>2024</option>
-          <option>2025</option>
-          <option selected>2026</option>
+
+          <option>
+            2022
+          </option>
+
+          <option>
+            2023
+          </option>
+
+          <option>
+            2024
+          </option>
+
+          <option>
+            2025
+          </option>
+
+          <option selected>
+            2026
+          </option>
+
         </select>
-        <label>Wilayah / PG</label>
+
+
+        <label>
+          Wilayah / PG
+        </label>
+
         <select id="dataWilayah">
-          <option>PG1</option>
-          <option>PG2</option>
-          <option>PG3</option>
-          <option>PG4</option>
+
+          <option>
+            PG1
+          </option>
+
+          <option>
+            PG2
+          </option>
+
+          <option>
+            PG3
+          </option>
+
+          <option>
+            PG4
+          </option>
+
         </select>
-        <label>Lokasi</label>
-        <input id="dataLokasi" placeholder="Blok A01" required>
-        <label>Parameter</label>
-        <input id="dataParameter" required>
-        <label>Hasil</label>
-        <input id="dataHasil" required>
-        <label>Status</label>
+
+
+        <label>
+          Lokasi / Block
+        </label>
+
+        <input
+          id="dataLokasi"
+          placeholder="Contoh: 027G-A2"
+          required
+        >
+
+
+        <label>
+          Parameter
+        </label>
+
+        <input
+          id="dataParameter"
+          required
+        >
+
+
+        <label>
+          Hasil
+        </label>
+
+        <input
+          id="dataHasil"
+          required
+        >
+
+
+        <label>
+          Status
+        </label>
+
         <select id="dataStatus">
-          <option>Baik</option>
-          <option>Perlu Monitoring</option>
-          <option>Tidak Sesuai</option>
+
+          <option>
+            Baik
+          </option>
+
+          <option>
+            Perlu Monitoring
+          </option>
+
+          <option>
+            Tidak Sesuai
+          </option>
+
         </select>
+
+
         <div style="height:14px"></div>
-        <button class="btn btn-primary btn-full">💾 Simpan Data</button>
+
+
+        <button
+          class="btn btn-primary btn-full"
+        >
+          💾 Simpan Data
+        </button>
+
       </form>
+
     </div>
+
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+
+  <!-- =================================================
+       XLSX
+  ================================================== -->
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+  ></script>
+
+
+  <!-- =================================================
+       SUPABASE
+  ================================================== -->
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+  ></script>
+
+
+  <!-- =================================================
+       MAIN SCRIPT
+  ================================================== -->
+
   <script src="../js/script.js"></script>
+
 </body>
+
 </html>
