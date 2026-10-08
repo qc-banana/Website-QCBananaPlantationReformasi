@@ -27,7 +27,7 @@
   <aside id="sidebar" class="sidebar">
 
     <div class="brand">
-      <div class="brand-icon">🍌</div>
+      <img src="images/logoGGF.webp" class="banana-icon" alt="Banana">
 
       <div>
         <strong>QC Banana Reformasi</strong>
@@ -744,90 +744,39 @@
 
       <section class="filter-bar">
 
-        <!-- WEEK -->
-
         <div class="filter-group">
-
-          <label for="proppingWeekFilter">
-            📅 WEEK
-          </label>
-
-          <select id="proppingWeekFilter">
-
-            <option value="all">
-              Semua Week
-            </option>
-
-          </select>
-
-        </div>
-
-
-        <!-- PG -->
-
-        <div class="filter-group">
-
-          <label for="proppingPGFilter">
-            🏭 PG
-          </label>
-
+          <label for="proppingPGFilter">📊 PG</label>
           <select id="proppingPGFilter">
-
-            <option value="all">
-              Semua PG
-            </option>
-
-            <option value="PG1">PG1</option>
-            <option value="PG2">PG2</option>
-            <option value="PG3">PG3</option>
-            <option value="PG4">PG4</option>
-
+            <option value="all">Semua PG</option>
           </select>
-
         </div>
 
-
-        <!-- WILAYAH -->
-
         <div class="filter-group">
-
-          <label for="proppingWilayahFilter">
-            📍 WILAYAH
-          </label>
-
+          <label for="proppingWilayahFilter">📍 WILAYAH</label>
           <select id="proppingWilayahFilter">
-
-            <option value="all">
-              Semua Wilayah
-            </option>
-
+            <option value="all">Semua Wilayah</option>
           </select>
-
         </div>
-                <!-- STANDAR >95% -->
 
         <div class="filter-group">
-
-          <label for="proppingStandardFilter">
-            📊 STANDAR (>95%)
-          </label>
-
-          <select id="proppingStandardFilter">
-
-            <option value="all">
-              Semua
-            </option>
-
-            <option value="Tidak Memenuhi Standar">
-              Tidak Memenuhi Standar
-            </option>
-
-            <option value="Memenuhi Standar">
-              Memenuhi Standar
-            </option>
-
+          <label for="proppingLokasiFilter">📍 LOKASI</label>
+          <select id="proppingLokasiFilter">
+            <option value="all">Semua Lokasi</option>
           </select>
+        </div>
 
+        <div class="filter-group">
+          <label for="proppingWeekFilter">🗓️ WEEK</label>
+          <select id="proppingWeekFilter">
+            <option value="all">Semua Week</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="proppingStandardFilter">📊 STANDAR (&gt;95%)</label>
+          <select id="proppingStandardFilter">
+            <option value="all">Semua</option>
+          </select>
         </div>
 
         <button
@@ -897,6 +846,59 @@
           </tbody>
 
         </table>
+
+      </div>
+
+      <!-- =========================================
+           DOKUMENTASI PROPPING
+      ========================================== -->
+      <div class="propping-documentation">
+
+        <div class="documentation-header">
+          <div>
+            <h3>Dokumentasi Propping</h3>
+            <p>Kumpulan dokumentasi kegiatan Propping.</p>
+          </div>
+
+          <button
+            type="button"
+            id="proppingDocumentationUploadBtn"
+            class="primary-btn">
+            📷 Upload Foto
+          </button>
+
+          <input
+            type="file"
+            id="proppingDocumentationInput"
+            accept="image/*"
+            multiple
+            hidden>
+        </div>
+
+        <div
+          id="proppingDocumentationInfo"
+          class="documentation-info">
+          Dokumentasi kegiatan Propping.
+        </div>
+        <div class="documentation-search">
+          <input
+            type="text"
+            id="proppingDocumentationSearch"
+            placeholder="🔎 Cari dokumentasi berdasarkan keterangan..."
+            autocomplete="off"
+          >
+        </div>
+
+        <!-- Tempat foto ditampilkan -->
+        <div
+          id="proppingDocumentationGrid"
+          class="documentation-grid">
+
+          <div class="documentation-empty">
+            Belum ada dokumentasi foto.
+          </div>
+
+        </div>
 
       </div>
 
