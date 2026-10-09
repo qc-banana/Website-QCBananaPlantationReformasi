@@ -88,7 +88,11 @@ function staff() {
 }
 
 function setStaff(v) {
-  v ? localStorage.setItem(LOGIN_KEY, "true") : localStorage.removeItem(LOGIN_KEY);
+  v
+    ? localStorage.setItem(LOGIN_KEY, "true")
+    : localStorage.removeItem(LOGIN_KEY);
+
+  updateProppingDocumentationUploadButton();
 }
 
 function pageKey() {
@@ -516,6 +520,457 @@ function setupGeneric() {
     };
   }
   document.querySelectorAll("[data-close-data]").forEach(e => e.onclick = closeData);
+}
+
+
+/* =========================================
+   BUAH 10 MG - DATA SUPABASE
+========================================= */
+
+let buah10mgRows = [];
+let buah10mgHeaders = [];
+
+function buah10mgColumnIndex(headers, keyword) {
+  return headers.findIndex(header =>
+    String(header ?? "").trim().toLowerCase() === keyword.toLowerCase()
+  );
+}
+
+async function loadBuah10mgFromSupabase() {
+  const body = document.getElementById("dataTableBody");
+  if (body) {
+    body.innerHTML =
+      '<tr><td colspan="58">Memuat data Buah 10 MG...</td></tr>';
+  }
+
+  if (!qcSupabase) {
+    alert("Supabase belum terhubung. Periksa koneksi Supabase di script.js.");
+    return;
+  }
+
+  const allRows = [];
+  const pageSize = 1000;
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await qcSupabase
+      .from("buah_10mg_data")
+      .select("id,row_data,headers")
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error("Gagal memuat data Buah 10 MG:", error);
+      if (body) {
+        body.innerHTML =
+          '<tr><td colspan="58">Gagal memuat data. Periksa koneksi dan kebijakan Supabase.</td></tr>';
+      }
+      return;
+    }
+
+    allRows.push(...(data || []));
+
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  buah10mgHeaders = Array.isArray(allRows[0]?.headers)
+    ? allRows[0].headers
+    : [];
+
+  buah10mgRows = allRows.map(item => ({
+    id: item.id,
+    values: Array.isArray(item.row_data) ? item.row_data : []
+  }));
+
+  console.log("Data Buah 10 MG dimuat:", buah10mgRows.length);
+
+  isiFilterBuah10mg();
+  renderBuah10mg();
+}
+
+function isiFilterBuah10mg() {
+  const yearFilter = document.getElementById("yearFilter");
+  const regionFilter = document.getElementById("regionFilter");
+
+  const yearIndex = buah10mgColumnIndex(buah10mgHeaders, "Tahun");
+  const pgIndex = buah10mgColumnIndex(buah10mgHeaders, "PG");
+
+  function updateOptions(select, values) {
+    if (!select) return;
+
+    const selected = select.value || "all";
+    select.innerHTML = '<option value="all">Semua</option>';
+
+    [...values]
+      .filter(value => String(value).trim() !== "")
+      .sort((a, b) => String(a).localeCompare(String(b), "id"))
+      .forEach(value => {
+        const option = document.createElement("option");
+        option.value = String(value);
+        option.textContent = String(value);
+        select.appendChild(option);
+      });
+
+    select.value = [...select.options].some(o => o.value === selected)
+      ? selected
+      : "all";
+  }
+
+  const years = new Set();
+  const pgs = new Set();
+
+  buah10mgRows.forEach(row => {
+    if (yearIndex >= 0) years.add(String(row.values[yearIndex] ?? "").trim());
+    if (pgIndex >= 0) pgs.add(String(row.values[pgIndex] ?? "").trim());
+  });
+
+  updateOptions(yearFilter, years);
+  updateOptions(regionFilter, pgs);
+}
+
+
+function renderBuah10mg() {
+  const body = document.getElementById("dataTableBody");
+  const head = document.getElementById("buah10mgTableHead")
+    || document.querySelector("#dataTable thead tr")
+    || document.querySelector("table thead tr");
+
+  if (!body) return;
+
+  const isPetugas = staff();
+
+  if (head) {
+    head.innerHTML = buah10mgHeaders.map(header =>
+      `<th>${esc(String(header ?? ""))}</th>`
+    ).join("");
+
+    if (isPetugas) {
+      head.insertAdjacentHTML("beforeend", "<th>Aksi</th>");
+    }
+  }
+
+  const yearIndex = buah10mgColumnIndex(buah10mgHeaders, "Tahun");
+  const pgIndex = buah10mgColumnIndex(buah10mgHeaders, "PG");
+  const selectedYear = document.getElementById("yearFilter")?.value || "all";
+  const selectedPG = document.getElementById("regionFilter")?.value || "all";
+
+  const filtered = buah10mgRows.filter(row => {
+    const year = yearIndex >= 0
+      ? String(row.values[yearIndex] ?? "").trim()
+      : "";
+    const pg = pgIndex >= 0
+      ? String(row.values[pgIndex] ?? "").trim()
+      : "";
+
+    return (selectedYear === "all" || year === selectedYear)
+      && (selectedPG === "all" || pg === selectedPG);
+  });
+
+  const colspan = buah10mgHeaders.length + (isPetugas ? 1 : 0);
+
+  if (!buah10mgHeaders.length) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="${colspan}">
+          Belum ada data. Petugas dapat mengunggah file Excel.
+        </td>
+      </tr>`;
+  } else if (!filtered.length) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="${colspan}"
+          style="text-align:center;padding:24px">
+          Tidak ada data untuk filter yang dipilih.
+        </td>
+      </tr>`;
+  } else {
+    body.innerHTML = filtered.map(row => {
+      const cells = buah10mgHeaders.map((_, index) =>
+        `<td>${esc(String(row.values[index] ?? ""))}</td>`
+      ).join("");
+
+      const actions = isPetugas ? `
+        <td class="buah10mg-actions">
+          <button type="button" class="icon-btn edit-btn"
+            data-buah-edit="${Number(row.id)}">✏️ Edit</button>
+          <button type="button" class="icon-btn delete-btn"
+            data-buah-delete="${Number(row.id)}">🗑️ Hapus</button>
+        </td>` : "";
+
+      return `<tr>${cells}${actions}</tr>`;
+    }).join("");
+  }
+
+  const recordCount = document.getElementById("recordCount");
+  if (recordCount) recordCount.textContent = filtered.length;
+
+  document.getElementById("actionHead")?.classList.toggle("hidden", !isPetugas);
+
+  body.querySelectorAll("[data-buah-edit]").forEach(button => {
+    button.onclick = () => editBuah10mgRow(Number(button.dataset.buahEdit));
+  });
+
+  body.querySelectorAll("[data-buah-delete]").forEach(button => {
+    button.onclick = () => deleteBuah10mgRow(Number(button.dataset.buahDelete));
+  });
+}
+
+
+function renderBuah10mg() {
+  const body = document.getElementById("dataTableBody");
+  const head = document.getElementById("buah10mgTableHead")
+    || document.querySelector("#dataTable thead tr")
+    || document.querySelector("table thead tr");
+
+  if (!body) return;
+
+  const isPetugas = staff();
+
+  if (head) {
+    head.innerHTML = buah10mgHeaders.map(header =>
+      `<th>${esc(String(header ?? ""))}</th>`
+    ).join("");
+
+    if (isPetugas) {
+      head.insertAdjacentHTML("beforeend", "<th>Aksi</th>");
+    }
+  }
+
+  const yearIndex = buah10mgColumnIndex(buah10mgHeaders, "Tahun");
+  const pgIndex = buah10mgColumnIndex(buah10mgHeaders, "PG");
+  const selectedYear = document.getElementById("yearFilter")?.value || "all";
+  const selectedPG = document.getElementById("regionFilter")?.value || "all";
+
+  const filtered = buah10mgRows.filter(row => {
+    const year = yearIndex >= 0
+      ? String(row.values[yearIndex] ?? "").trim()
+      : "";
+    const pg = pgIndex >= 0
+      ? String(row.values[pgIndex] ?? "").trim()
+      : "";
+
+    return (selectedYear === "all" || year === selectedYear)
+      && (selectedPG === "all" || pg === selectedPG);
+  });
+
+  const colspan = buah10mgHeaders.length + (isPetugas ? 1 : 0);
+
+  if (!buah10mgHeaders.length) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="${colspan}">
+          Belum ada data. Petugas dapat mengunggah file Excel.
+        </td>
+      </tr>`;
+  } else if (!filtered.length) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="${colspan}"
+          style="text-align:center;padding:24px">
+          Tidak ada data untuk filter yang dipilih.
+        </td>
+      </tr>`;
+  } else {
+    body.innerHTML = filtered.map(row => {
+      const cells = buah10mgHeaders.map((_, index) =>
+        `<td>${esc(String(row.values[index] ?? ""))}</td>`
+      ).join("");
+
+      const actions = isPetugas ? `
+        <td class="buah10mg-actions">
+          <button type="button" class="icon-btn edit-btn"
+            data-buah-edit="${Number(row.id)}">✏️ Edit</button>
+          <button type="button" class="icon-btn delete-btn"
+            data-buah-delete="${Number(row.id)}">🗑️ Hapus</button>
+        </td>` : "";
+
+      return `<tr>${cells}${actions}</tr>`;
+    }).join("");
+  }
+
+  const recordCount = document.getElementById("recordCount");
+  if (recordCount) recordCount.textContent = filtered.length;
+
+  document.getElementById("actionHead")?.classList.toggle("hidden", !isPetugas);
+
+  body.querySelectorAll("[data-buah-edit]").forEach(button => {
+    button.onclick = () => editBuah10mgRow(Number(button.dataset.buahEdit));
+  });
+
+  body.querySelectorAll("[data-buah-delete]").forEach(button => {
+    button.onclick = () => deleteBuah10mgRow(Number(button.dataset.buahDelete));
+  });
+}
+
+/* =========================================
+   BUAH 10 MG - UPLOAD EXCEL
+   Sheet: Rekap Data 10 Mg
+========================================= */
+
+async function importBuah10mg(file) {
+  if (!file) return;
+
+  if (!staff()) {
+    openLogin();
+    return;
+  }
+
+  if (!qcSupabase) {
+    alert("Supabase belum terhubung.");
+    return;
+  }
+
+  if (typeof XLSX === "undefined") {
+    alert("Pembaca Excel belum tersedia. Periksa koneksi internet.");
+    return;
+  }
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheet = workbook.Sheets["Rekap Data 10 Mg"];
+
+    if (!sheet) {
+      alert('Sheet "Rekap Data 10 Mg" tidak ditemukan di file Excel.');
+      return;
+    }
+
+    // Header berada di baris Excel ke-4; data dimulai dari baris ke-5.
+    const sheetRows = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      range: 3,
+      defval: "",
+      raw: false
+    });
+
+    if (sheetRows.length < 2) {
+      alert("Sheet tidak berisi data yang bisa diunggah.");
+      return;
+    }
+
+    const columnCount = Math.max(
+      58,
+      ...sheetRows.slice(0, 1).map(row => row.length)
+    );
+
+    const headers = Array.from(
+      { length: columnCount },
+      (_, index) => {
+        const value = sheetRows[0]?.[index];
+        return String(value ?? "").trim() || `Kolom ${index + 1}`;
+      }
+    );
+
+    const rows = sheetRows.slice(1)
+      .filter(row => row.some(value => String(value ?? "").trim() !== ""))
+      .map(row =>
+        Array.from({ length: columnCount }, (_, index) => {
+          const value = row[index];
+          return value === null || value === undefined ? "" : String(value);
+        })
+      );
+
+    if (!rows.length) {
+      alert("Tidak ada baris data yang ditemukan.");
+      return;
+    }
+
+    const approved = confirm(
+      `Ditemukan ${rows.length.toLocaleString("id-ID")} baris data.\n\n` +
+      "Unggahan ini akan MENGGANTI seluruh data Buah 10 MG yang ada di Supabase. Lanjutkan?"
+    );
+
+    if (!approved) return;
+
+    const { error: deleteError } = await qcSupabase
+      .from("buah_10mg_data")
+      .delete()
+      .gte("id", 0);
+
+    if (deleteError) {
+      console.error("Gagal mengosongkan data Buah 10 MG:", deleteError);
+      alert("Data lama belum bisa diganti. Periksa izin DELETE di Supabase.");
+      return;
+    }
+
+    const batchSize = 250;
+
+    for (let start = 0; start < rows.length; start += batchSize) {
+      const batch = rows.slice(start, start + batchSize).map(values => ({
+        row_data: values,
+        headers: headers
+      }));
+
+      const { error } = await qcSupabase
+        .from("buah_10mg_data")
+        .insert(batch);
+
+      if (error) {
+        console.error("Gagal mengunggah batch Buah 10 MG:", error);
+        alert(
+          `Upload berhenti pada baris ${start + 1}. ` +
+          "Periksa error di Console sebelum mengunggah ulang."
+        );
+        await loadBuah10mgFromSupabase();
+        return;
+      }
+    }
+
+    await loadBuah10mgFromSupabase();
+
+    alert(
+      `${rows.length.toLocaleString("id-ID")} baris Buah 10 MG berhasil diunggah.`
+    );
+  } catch (error) {
+    console.error("Kesalahan upload Buah 10 MG:", error);
+    alert("File Excel gagal diproses. Periksa sheet dan format file.");
+  }
+}
+
+function setupBuah10mg() {
+  const body = document.getElementById("dataTableBody");
+  if (!body) return;
+
+  document.getElementById("yearFilter")
+    ?.addEventListener("change", renderBuah10mg);
+
+  document.getElementById("regionFilter")
+    ?.addEventListener("change", renderBuah10mg);
+
+  document.getElementById("resetFilters")
+    ?.addEventListener("click", () => {
+      const year = document.getElementById("yearFilter");
+      const pg = document.getElementById("regionFilter");
+
+      if (year) year.value = "all";
+      if (pg) pg.value = "all";
+
+      renderBuah10mg();
+    });
+
+  document.getElementById("uploadExcelBtn")
+    ?.addEventListener("click", () => {
+      if (!staff()) {
+        openLogin();
+        return;
+      }
+
+      document.getElementById("excelFileInput")?.click();
+    });
+
+  document.getElementById("excelFileInput")
+    ?.addEventListener("change", async event => {
+      const file = event.target.files?.[0];
+
+      try {
+        await importBuah10mg(file);
+      } finally {
+        event.target.value = "";
+      }
+    });
+
+  loadBuah10mgFromSupabase();
 }
 
 function bibitFormValue(id) {
@@ -962,8 +1417,31 @@ Grafik Keseragaman dihitung dari kolom X, Y, Z berdasarkan PG + Week + Tahun.`);
   reader.readAsArrayBuffer(file);
 }
 
+// ===============================
+// TAMPILKAN / SEMBUNYIKAN
+// TOMBOL UPLOAD DOKUMENTASI BIBIT
+// ===============================
+
+function updateBibitDocumentationUploadButton() {
+
+  const uploadBtn =
+    document.getElementById(
+      "bibitDocumentationUploadBtn"
+    );
+
+  if (!uploadBtn) return;
+
+  const isPetugas =
+    localStorage.getItem(LOGIN_KEY) === "true";
+
+  uploadBtn.style.display =
+    isPetugas ? "inline-flex" : "none";
+}
+
 function setupBibit(){
  if(!document.getElementById("bibitTableBody"))return;
+
+ updateBibitDocumentationUploadButton();
 
  renderBibit();
  loadBibitFromSupabase();
@@ -1006,6 +1484,113 @@ function setupBibit(){
     importBibit(e.target.files[0]);
     e.target.value = "";
   };
+
+  // ===============================
+// UPLOAD DOKUMENTASI FOTO BIBIT
+// ===============================
+
+const bibitDocumentationUploadBtn =
+  document.getElementById("bibitDocumentationUploadBtn");
+
+const bibitDocumentationInput =
+  document.getElementById("bibitDocumentationInput");
+
+if (
+  bibitDocumentationUploadBtn &&
+  bibitDocumentationInput
+) {
+
+  bibitDocumentationUploadBtn.addEventListener(
+    "click",
+    () => {
+
+      if (!staff()) {
+        openLogin();
+        return;
+      }
+
+      bibitDocumentationInput.click();
+    }
+  );
+
+  bibitDocumentationInput.addEventListener(
+    "change",
+    async (event) => {
+
+      const files = Array.from(
+        event.target.files || []
+      );
+
+      if (!files.length) return;
+
+      const keterangan = prompt(
+        "Masukkan keterangan untuk foto dokumentasi Bibit:"
+      );
+
+      if (keterangan === null) {
+        bibitDocumentationInput.value = "";
+        return;
+      }
+
+      if (!keterangan.trim()) {
+        alert("Keterangan tidak boleh kosong.");
+        bibitDocumentationInput.value = "";
+        return;
+      }
+
+      let successCount = 0;
+
+      for (const file of files) {
+
+        const publicUrl =
+          await uploadBibitDocumentation(file);
+
+        if (!publicUrl) continue;
+
+        const { error } =
+          await qcSupabase
+            .from("bibit_documentation")
+            .insert({
+              foto_url: publicUrl,
+              keterangan: keterangan.trim()
+            });
+
+        if (error) {
+
+          console.error(
+            "❌ Gagal menyimpan dokumentasi Bibit:",
+            error
+          );
+
+          continue;
+        }
+
+        successCount++;
+
+      }
+
+      bibitDocumentationInput.value = "";
+
+      if (successCount > 0) {
+
+        alert(
+          `✅ ${successCount} foto dokumentasi Bibit berhasil diupload.`
+        );
+
+        loadBibitDocumentation();
+
+      } else {
+
+        alert(
+          "❌ Tidak ada foto yang berhasil diupload."
+        );
+
+      }
+
+    }
+  );
+
+}
   
   const f = document.getElementById("bibitForm");
   if (f) {
@@ -1867,6 +2452,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     setupAgronomi();
 
+  } else if (pageKey() === "buah") {
+
+    setupBuah10mg();
+
   } else {
 
     setupGeneric();
@@ -2046,9 +2635,25 @@ async function importPropping(file) {
   }
 }
 
+function updateProppingDocumentationUploadButton() {
+
+  const uploadBtn = document.getElementById(
+    "proppingDocumentationUploadBtn"
+  );
+
+  if (!uploadBtn) return;
+
+  const isPetugas =
+    localStorage.getItem(LOGIN_KEY) === "true";
+
+  uploadBtn.style.display = isPetugas
+    ? "inline-flex"
+    : "none";
+}
 
 async function setupPropping() {
   console.log("✅ setupPropping aktif");
+  updateProppingDocumentationUploadButton();
 
   const rows = await getProppingFromSupabase();
 
@@ -2396,6 +3001,424 @@ async function uploadProppingDocumentation(file) {
   }
 }
 
+// ===============================
+// UPLOAD DOKUMENTASI BIBIT
+// ===============================
+
+async function uploadBibitDocumentation(file) {
+
+  if (!qcSupabase) {
+    alert("Supabase belum tersedia.");
+    return null;
+  }
+
+  if (!file) return null;
+
+  try {
+
+    console.log(
+      "📷 Upload dokumentasi Bibit:",
+      file.name
+    );
+
+    const extension =
+      file.name.split(".").pop();
+
+    const fileName =
+      `bibit_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 8)}.${extension}`;
+
+    // Folder khusus Bibit
+    const filePath =
+      `bibit/${fileName}`;
+
+    const { error: uploadError } =
+      await qcSupabase.storage
+        .from("qc-documentation")
+        .upload(
+          filePath,
+          file,
+          {
+            cacheControl: "3600",
+            upsert: false
+          }
+        );
+
+    if (uploadError) {
+
+      console.error(
+        "❌ Gagal upload foto Bibit:",
+        uploadError
+      );
+
+      alert(
+        "Gagal upload foto: " +
+        uploadError.message
+      );
+
+      return null;
+    }
+
+    const { data } =
+      qcSupabase.storage
+        .from("qc-documentation")
+        .getPublicUrl(filePath);
+
+    const publicUrl =
+      data?.publicUrl;
+
+    if (!publicUrl) {
+
+      alert(
+        "Foto berhasil diupload, tetapi URL foto tidak ditemukan."
+      );
+
+      return null;
+    }
+
+    console.log(
+      "✅ Foto Bibit berhasil diupload:",
+      publicUrl
+    );
+
+    return publicUrl;
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error upload dokumentasi Bibit:",
+      error
+    );
+
+    alert(
+      "Terjadi kesalahan saat upload foto."
+    );
+
+    return null;
+  }
+}
+
+// ===============================
+// LOAD DOKUMENTASI BIBIT
+// ===============================
+
+async function loadBibitDocumentation(searchText = "") {
+
+  const grid =
+    document.getElementById("bibitDocumentationGrid");
+
+  const info =
+    document.getElementById("bibitDocumentationInfo");
+
+  if (!grid) return;
+
+  if (!qcSupabase) {
+    grid.innerHTML = `
+      <div class="documentation-empty">
+        Supabase belum tersedia.
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = `
+    <div class="documentation-empty">
+      Memuat dokumentasi...
+    </div>
+  `;
+
+  try {
+
+    const keyword =
+      String(searchText || "").trim().toLowerCase();
+
+    let query = qcSupabase
+      .from("bibit_documentation")
+      .select("id,foto_url,keterangan,created_at")
+      .order("created_at", {
+        ascending: false
+      });
+
+    // Kalau sedang mencari → cari ke semua dokumentasi
+    if (keyword) {
+
+      query = query.ilike(
+        "keterangan",
+        `%${keyword}%`
+      );
+
+    } else {
+
+      // Tampilan awal hanya 5 dokumentasi terbaru
+      query = query.limit(5);
+
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+
+      console.error(
+        "❌ Gagal mengambil dokumentasi Bibit:",
+        error
+      );
+
+      grid.innerHTML = `
+        <div class="documentation-empty">
+          Gagal mengambil dokumentasi.
+        </div>
+      `;
+
+      return;
+    }
+
+    if (!data || data.length === 0) {
+
+      grid.innerHTML = `
+        <div class="documentation-empty">
+          ${
+            keyword
+              ? "Dokumentasi dengan keterangan tersebut tidak ditemukan."
+              : "Belum ada dokumentasi foto."
+          }
+        </div>
+      `;
+
+      if (info) {
+        info.textContent =
+          keyword
+            ? "Tidak ada hasil pencarian."
+            : "Belum ada dokumentasi.";
+      }
+
+      return;
+    }
+
+    if (info) {
+
+      info.textContent =
+        keyword
+          ? `${data.length} dokumentasi ditemukan untuk "${searchText}".`
+          : `Menampilkan ${data.length} dokumentasi terbaru.`;
+
+    }
+
+    const isPetugas =
+      staff();
+
+    grid.innerHTML = data.map(item => {
+
+      const tanggal =
+        item.created_at
+          ? new Date(
+              item.created_at
+            ).toLocaleDateString(
+              "id-ID",
+              {
+                day: "2-digit",
+                month: "long",
+                year: "numeric"
+              }
+            )
+          : "";
+
+      return `
+        <div class="documentation-card">
+
+          <img
+            src="${esc(item.foto_url)}"
+            alt="Dokumentasi Bibit"
+            loading="lazy"
+          >
+
+          <div class="documentation-card-body">
+
+            <p>
+              ${esc(
+                item.keterangan ||
+                "Dokumentasi kegiatan Bibit"
+              )}
+            </p>
+
+            <small>
+              ${esc(tanggal)}
+            </small>
+
+            ${
+              isPetugas
+                ? `
+                  <button
+                    type="button"
+                    class="documentation-delete-btn"
+                    onclick="deleteBibitDocumentation(
+                      ${Number(item.id)},
+                      '${esc(item.foto_url)}'
+                    )">
+                    🗑️ Hapus
+                  </button>
+                `
+                : ""
+            }
+
+            </div>
+
+        </div>
+      `;
+
+    }).join("");
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error dokumentasi Bibit:",
+      error
+    );
+
+    grid.innerHTML = `
+      <div class="documentation-empty">
+        Terjadi kesalahan saat memuat dokumentasi.
+      </div>
+    `;
+
+  }
+
+}
+
+// ===============================
+// HAPUS DOKUMENTASI BIBIT
+// ===============================
+
+async function deleteBibitDocumentation(id, fotoUrl) {
+
+  if (!qcSupabase) {
+    alert("Supabase belum tersedia.");
+    return;
+  }
+
+  if (!staff()) {
+    alert("Hanya Petugas yang dapat menghapus dokumentasi.");
+    return;
+  }
+
+  const yakin = confirm(
+    "Yakin ingin menghapus dokumentasi Bibit ini?"
+  );
+
+  if (!yakin) return;
+
+  try {
+
+    const marker =
+      "/storage/v1/object/public/qc-documentation/";
+
+    const markerIndex =
+      fotoUrl.indexOf(marker);
+
+    if (markerIndex === -1) {
+
+      alert(
+        "Path foto tidak dapat ditemukan."
+      );
+
+      return;
+    }
+
+    const filePath =
+      decodeURIComponent(
+        fotoUrl.substring(
+          markerIndex + marker.length
+        )
+      );
+
+    console.log(
+      "🗑️ File Bibit yang dihapus:",
+      filePath
+    );
+
+    // ===============================
+    // HAPUS FOTO DARI STORAGE
+    // ===============================
+
+    const { error: storageError } =
+      await qcSupabase.storage
+        .from("qc-documentation")
+        .remove([filePath]);
+
+    if (storageError) {
+
+      console.error(
+        "❌ Gagal menghapus foto:",
+        storageError
+      );
+
+      alert(
+        "Gagal menghapus foto dari Storage: " +
+        storageError.message
+      );
+
+      return;
+    }
+
+    // ===============================
+    // HAPUS DATA DARI DATABASE
+    // ===============================
+
+    const { error: dbError } =
+      await qcSupabase
+        .from("bibit_documentation")
+        .delete()
+        .eq("id", id);
+
+    if (dbError) {
+
+      console.error(
+        "❌ Gagal menghapus data dokumentasi:",
+        dbError
+      );
+
+      alert(
+        "Foto berhasil dihapus dari Storage, tetapi data dokumentasi gagal dihapus."
+      );
+
+      return;
+    }
+
+    console.log(
+      "✅ Dokumentasi Bibit berhasil dihapus."
+    );
+
+    alert(
+      "✅ Dokumentasi Bibit berhasil dihapus."
+    );
+
+    // ===============================
+    // REFRESH GALERI
+    // ===============================
+
+    const searchInput =
+      document.getElementById(
+        "bibitDocumentationSearch"
+      );
+
+    loadBibitDocumentation(
+      searchInput?.value || ""
+    );
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error menghapus dokumentasi Bibit:",
+      error
+    );
+
+    alert(
+      "Terjadi kesalahan saat menghapus dokumentasi."
+    );
+
+  }
+}
+
 async function loadProppingDocumentation(searchText = "") {
 
   const grid = document.getElementById(
@@ -2436,21 +3459,29 @@ async function loadProppingDocumentation(searchText = "") {
         ascending: false
       });
 
-    // Kalau sedang search, ambil data lebih banyak
-    // supaya pencarian tidak hanya dari 10 foto terbaru.
+    // ===============================
+    // SEARCH
+    // ===============================
+
     if (keyword) {
+
+      // Search semua dokumentasi
       query = query.ilike(
         "keterangan",
         `%${keyword}%`
       );
+
     } else {
-      // Tampilan awal hanya 10 foto terbaru
+
+      // Tampilan awal hanya 5 foto terbaru
       query = query.limit(5);
+
     }
 
     const { data, error } = await query;
 
     if (error) {
+
       console.error(
         "❌ Gagal mengambil dokumentasi:",
         error
@@ -2465,6 +3496,10 @@ async function loadProppingDocumentation(searchText = "") {
       return;
     }
 
+    // ===============================
+    // DATA KOSONG
+    // ===============================
+
     if (!data || data.length === 0) {
 
       grid.innerHTML = `
@@ -2478,19 +3513,31 @@ async function loadProppingDocumentation(searchText = "") {
       `;
 
       if (info) {
+
         info.textContent = keyword
           ? "Tidak ada hasil pencarian."
           : "Belum ada dokumentasi.";
+
       }
 
       return;
     }
 
+    // ===============================
+    // INFO
+    // ===============================
+
     if (info) {
+
       info.textContent = keyword
         ? `${data.length} dokumentasi ditemukan untuk "${searchText}".`
         : `Menampilkan ${data.length} dokumentasi terbaru.`;
+
     }
+
+    // ===============================
+    // TAMPILKAN FOTO
+    // ===============================
 
     grid.innerHTML = data.map(item => {
 
@@ -2504,6 +3551,9 @@ async function loadProppingDocumentation(searchText = "") {
             }
           )
         : "";
+
+      const isPetugas =
+        localStorage.getItem(LOGIN_KEY) === "true";
 
       return `
         <div class="documentation-card">
@@ -2527,6 +3577,22 @@ async function loadProppingDocumentation(searchText = "") {
               ${esc(tanggal)}
             </small>
 
+            ${
+              isPetugas
+                ? `
+                  <button
+                    type="button"
+                    class="documentation-delete-btn"
+                    onclick="deleteProppingDocumentation(
+                      ${Number(item.id)},
+                      '${esc(item.foto_url)}'
+                    )">
+                    🗑️ Hapus
+                  </button>
+                `
+                : ""
+            }
+
           </div>
 
         </div>
@@ -2549,6 +3615,155 @@ async function loadProppingDocumentation(searchText = "") {
   }
 }
 
+async function deleteProppingDocumentation(id, fotoUrl) {
+
+  // ===============================
+  // CEK SUPABASE
+  // ===============================
+
+  if (!qcSupabase) {
+    alert("Supabase belum tersedia.");
+    return;
+  }
+
+  // ===============================
+  // CEK PETUGAS
+  // ===============================
+
+  if (localStorage.getItem(LOGIN_KEY) !== "true") {
+    alert("Hanya Petugas yang dapat menghapus dokumentasi.");
+    return;
+  }
+
+  // ===============================
+  // KONFIRMASI
+  // ===============================
+
+  const yakin = confirm(
+    "Yakin ingin menghapus dokumentasi ini?"
+  );
+
+  if (!yakin) return;
+
+  try {
+
+    // ===============================
+    // AMBIL PATH FILE DARI URL
+    // ===============================
+
+    const marker =
+      "/storage/v1/object/public/qc-documentation/";
+
+    const markerIndex =
+      fotoUrl.indexOf(marker);
+
+    if (markerIndex === -1) {
+
+      alert(
+        "Path foto tidak dapat ditemukan."
+      );
+
+      return;
+    }
+
+    const filePath =
+      decodeURIComponent(
+        fotoUrl.substring(
+          markerIndex + marker.length
+        )
+      );
+
+    console.log(
+      "🗑️ File yang dihapus:",
+      filePath
+    );
+
+    // ===============================
+    // HAPUS FOTO DARI STORAGE
+    // ===============================
+
+    const { error: storageError } =
+      await qcSupabase.storage
+        .from("qc-documentation")
+        .remove([filePath]);
+
+    if (storageError) {
+
+      console.error(
+        "❌ Gagal menghapus foto:",
+        storageError
+      );
+
+      alert(
+        "Gagal menghapus foto dari Storage: " +
+        storageError.message
+      );
+
+      return;
+    }
+
+    // ===============================
+    // HAPUS DATA DARI TABLE
+    // ===============================
+
+    const { error: dbError } =
+      await qcSupabase
+        .from("propping_documentation")
+        .delete()
+        .eq("id", id);
+
+    if (dbError) {
+
+      console.error(
+        "❌ Gagal menghapus data:",
+        dbError
+      );
+
+      alert(
+        "Foto berhasil dihapus dari Storage, " +
+        "tetapi data dokumentasi gagal dihapus."
+      );
+
+      return;
+    }
+
+    // ===============================
+    // BERHASIL
+    // ===============================
+
+    console.log(
+      "✅ Dokumentasi berhasil dihapus."
+    );
+
+    alert(
+      "✅ Dokumentasi berhasil dihapus."
+    );
+
+    // ===============================
+    // REFRESH GALERI
+    // ===============================
+
+    const searchInput =
+      document.getElementById(
+        "proppingDocumentationSearch"
+      );
+
+    loadProppingDocumentation(
+      searchInput?.value || ""
+    );
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error menghapus dokumentasi:",
+      error
+    );
+
+    alert(
+      "Terjadi kesalahan saat menghapus dokumentasi."
+    );
+  }
+}
 // =====================================================
 // AMBIL DATA PROPPING DARI SUPABASE
 // =====================================================
@@ -3899,97 +5114,60 @@ function formatProppingPercent(value) {
   return `${(num * 100).toFixed(1).replace(/\.0$/, "")}%`;
 }
 
+
 function renderPropping(rows) {
   const tbody = document.getElementById("proppingTableBody");
-
   if (!tbody) return;
-  const yearFilter =
-  document.getElementById("proppingYearFilter")?.value || "all";
 
+  const yearFilter =
+    document.getElementById("proppingYearFilter")?.value || "all";
   const weekFilter =
     document.getElementById("proppingWeekFilter")?.value || "all";
-
   const pgFilter =
     document.getElementById("proppingPGFilter")?.value || "all";
-
   const wilayahFilter =
-  document.getElementById("proppingWilayahFilter")?.value || "all";
-
+    document.getElementById("proppingWilayahFilter")?.value || "all";
   const lokasiFilter =
     document.getElementById("proppingLokasiFilter")?.value || "all";
-
   const standardFilter =
     document.getElementById("proppingStandardFilter")?.value || "all";
+
+  const isPetugas = staff();
+
   const filtered = rows.filter(row => {
-  const v = row.values || [];
-  const year = String(v[5] ?? "").trim();
-  const pg = String(v[1] ?? "").trim();
-  const wilayah = String(v[2] ?? "").trim();
-  const lokasi = String(v[3] ?? "").trim();
-  const week = String(v[7] ?? "").trim();
-  
-  if (yearFilter !== "all" && year !== yearFilter) {
-  return false;
-}
-  if (weekFilter !== "all" && week !== weekFilter) {
-    return false;
-  }
+    const v = row.values || [];
 
-  if (pgFilter !== "all" && pg !== pgFilter) {
-    return false;
-  }
+    const year = String(v[5] ?? "").trim();
+    const pg = String(v[1] ?? "").trim();
+    const wilayah = String(v[2] ?? "").trim();
+    const lokasi = String(v[3] ?? "").trim();
+    const week = String(v[7] ?? "").trim();
+    const standard = String(v[19] ?? "").trim().toLowerCase();
 
-  if (wilayahFilter !== "all" && wilayah !== wilayahFilter) {
-    return false;
-  }
-  if (lokasiFilter !== "all" && lokasi !== lokasiFilter) {
-  return false;
-  }
+    if (yearFilter !== "all" && year !== yearFilter) return false;
+    if (weekFilter !== "all" && week !== weekFilter) return false;
+    if (pgFilter !== "all" && pg !== pgFilter) return false;
+    if (wilayahFilter !== "all" && wilayah !== wilayahFilter) return false;
+    if (lokasiFilter !== "all" && lokasi !== lokasiFilter) return false;
 
-  const standard = v[19];
-
-  if (standardFilter !== "all") {
-
-    const standardValue = String(standard).toLowerCase().trim();
-    const selectedStandard = String(standardFilter).toLowerCase().trim();
-
-    if (standardValue !== selectedStandard) {
+    if (
+      standardFilter !== "all" &&
+      standard !== String(standardFilter).trim().toLowerCase()
+    ) {
       return false;
     }
 
-  }
-
-return true;
-});
-
-// TAMBAHKAN INI
-const recordCount = document.getElementById("proppingRecordCount");
-
-if (recordCount) {
-  recordCount.textContent = filtered.length;
-}
-
-if (!filtered.length) {
-  tbody.innerHTML = `
-    <tr>
-      <td colspan="22" style="text-align:center;padding:30px;">
-        Tidak ada data Propping.
-      </td>
-    </tr>
-  `;
-  return;
-}
-  console.log("🔎 Filter Propping:", {
-    weekFilter,
-    pgFilter,
-    wilayahFilter,
-    hasil: filtered.length
+    return true;
   });
+
+  const recordCount = document.getElementById("proppingRecordCount");
+  if (recordCount) recordCount.textContent = filtered.length;
 
   if (!filtered.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="22" style="text-align:center;padding:30px;">
+        <td colspan="${isPetugas ? 23 : 22}"
+            style="text-align:center;padding:30px;">
           Tidak ada data Propping.
         </td>
       </tr>
@@ -4024,10 +5202,159 @@ if (!filtered.length) {
         <td>${esc(v[19] ?? "")}</td>
         <td>${esc(v[20] ?? "")}</td>
         <td>${esc(v[21] ?? "")}</td>
+
+        ${isPetugas ? `
+          <td style="white-space:nowrap;">
+            <button type="button"
+              onclick="editProppingRow(${Number(row.id)})">
+              ✏️ Edit
+            </button>
+            <button type="button"
+              onclick="deleteProppingRow(${Number(row.id)})">
+              🗑️ Hapus
+            </button>
+          </td>
+        ` : ""}
       </tr>
     `;
   }).join("");
 }
+
+
+async function editProppingRow(id) {
+  if (!staff()) {
+    alert("Silakan login sebagai Petugas.");
+    return;
+  }
+
+  const rows = await getProppingFromSupabase();
+  const row = rows.find(item => Number(item.id) === Number(id));
+
+  if (!row) {
+    alert("Data Propping tidak ditemukan.");
+    return;
+  }
+
+  const values = [...(row.values || [])];
+
+  // Form edit dibuat sesuai jumlah kolom data
+  const form = document.createElement("form");
+  form.style.cssText = `
+    position:fixed; inset:5% 5%; z-index:99999;
+    background:white; color:#222; padding:24px;
+    overflow:auto; border:1px solid #ccc; border-radius:12px;
+    box-shadow:0 8px 30px #0004;
+  `;
+
+  form.innerHTML = `
+    <h3>Edit Data Propping</h3>
+    <p>Ubah kolom yang diperlukan, lalu klik Simpan.</p>
+    <div id="proppingEditFields"></div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button type="submit">💾 Simpan</button>
+      <button type="button" id="cancelProppingEdit">Batal</button>
+    </div>
+  `;
+
+  const fields = form.querySelector("#proppingEditFields");
+
+  values.forEach((value, index) => {
+    const label = document.createElement("label");
+    label.style.cssText = "display:block;margin:12px 0;";
+
+    const title = document.createElement("div");
+    title.textContent = `Kolom ${index + 1}`;
+    title.style.marginBottom = "4px";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.name = `col_${index}`;
+    input.value = value ?? "";
+    input.style.cssText = "width:100%;box-sizing:border-box;padding:9px;";
+
+    label.append(title, input);
+    fields.appendChild(label);
+  });
+
+  document.body.appendChild(form);
+
+  form.querySelector("#cancelProppingEdit").onclick = () => form.remove();
+
+  form.onsubmit = async event => {
+    event.preventDefault();
+
+    if (!staff()) {
+      alert("Sesi Petugas tidak aktif.");
+      form.remove();
+      return;
+    }
+
+    const updatedValues = values.map((_, index) =>
+      form.elements[`col_${index}`].value
+    );
+
+    const saveButton = form.querySelector('button[type="submit"]');
+    saveButton.disabled = true;
+    saveButton.textContent = "Menyimpan...";
+
+    const { error } = await qcSupabase
+      .from("propping_data")
+      .update({ row_data: updatedValues })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Gagal mengedit Propping:", error);
+      alert("Gagal menyimpan perubahan. Periksa izin UPDATE di Supabase.");
+      saveButton.disabled = false;
+      saveButton.textContent = "💾 Simpan";
+      return;
+    }
+
+    form.remove();
+    alert("Data Propping berhasil diperbarui.");
+
+    await refreshProppingAfterChange();
+  };
+}
+
+async function deleteProppingRow(id) {
+  if (!staff()) {
+    alert("Silakan login sebagai Petugas.");
+    return;
+  }
+
+  const yakin = confirm(
+    "Yakin ingin menghapus data Propping ini? Data yang dihapus tidak dapat dipulihkan."
+  );
+
+  if (!yakin) return;
+
+  const { error } = await qcSupabase
+    .from("propping_data")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Gagal menghapus Propping:", error);
+    alert("Gagal menghapus data. Periksa izin DELETE di Supabase.");
+    return;
+  }
+
+  alert("Data Propping berhasil dihapus.");
+
+  await refreshProppingAfterChange();
+}
+
+async function refreshProppingAfterChange() {
+  const rows = await getProppingFromSupabase();
+
+  updateProppingCascadingFilters(rows);
+  renderPropping(rows);
+  renderProppingCharts(rows);
+  renderProppingMinAvgCharts(rows);
+  renderProppingLocationRejectCharts(rows);
+}
+
 function renderProppingCharts(rows) {
   const area = document.getElementById("proppingChartArea");
   if (!area) return;
@@ -5313,19 +6640,37 @@ async function importAgronomi(file) {
   }
 }
 
-function getQuarterFromWeek(weekValue) {
-  const match = String(weekValue ?? "").match(/\d+/);
 
-  if (!match) return null;
+function getQuarterFromMonth(monthValue) {
+  const month = String(monthValue ?? "")
+    .trim()
+    .toLowerCase();
 
-  const week = parseInt(match[0], 10);
+  const monthMap = {
+    jan: 1, januari: 1, january: 1,
+    feb: 2, februari: 2, february: 2,
+    mar: 3, maret: 3, march: 3,
+    apr: 4, april: 4,
+    mei: 5, may: 5,
+    jun: 6, juni: 6, june: 6,
+    jul: 7, juli: 7, july: 7,
+    agu: 8, agustus: 8, aug: 8, august: 8,
+    sep: 9, september: 9,
+    okt: 10, oktober: 10, oct: 10, october: 10,
+    nov: 11, november: 11,
+    des: 12, desember: 12, dec: 12, december: 12
+  };
 
-  if (week >= 1 && week <= 13) return "Q1";
-  if (week >= 14 && week <= 26) return "Q2";
-  if (week >= 27 && week <= 39) return "Q3";
-  if (week >= 40 && week <= 53) return "Q4";
+  // Mendukung format seperti Jan'26 atau Jan 2026
+  const key = month.match(/^[a-z]+/)?.[0];
+  const monthNumber = monthMap[key];
 
-  return null;
+  if (!monthNumber) return null;
+
+  if (monthNumber <= 3) return "Q1";
+  if (monthNumber <= 6) return "Q2";
+  if (monthNumber <= 9) return "Q3";
+  return "Q4";
 }
 
 function buildAgronomiQuarterData(rows, year, age) {
@@ -5393,6 +6738,8 @@ function buildAgronomiQuarterData(rows, year, age) {
     });
 
   });
+  console.log("TOTAL BARIS AGRONOMI:", rows.length);
+  console.log("CONTOH DATA AGRONOMI:", rows.slice(0, 5));
 
   rows.forEach(row => {
 
@@ -5404,7 +6751,7 @@ function buildAgronomiQuarterData(rows, year, age) {
     const pg = String(values[9] ?? "").trim();
     const status = String(values[11] ?? "").trim().toUpperCase();
     const umur = Number(values[12]);
-    const quarter = getQuarterFromWeek(values[3]);
+    const quarter = getQuarterFromMonth(values[4]);
 
     if (!quarter) return;
 
@@ -5562,120 +6909,142 @@ function renderAgronomiCharts(rows) {
 
   }
 
-  function createChart(canvasId, oldChart, title, metric) {
+function createChart(canvasId, oldChart, title, metric) {
+  const canvas = document.getElementById(canvasId);
 
-    const canvas = document.getElementById(canvasId);
+  if (!canvas) {
+    console.warn(`⚠️ Canvas tidak ditemukan: ${canvasId}`);
+    return null;
+  }
 
-    if (!canvas) {
-      console.warn(`⚠️ Canvas tidak ditemukan: ${canvasId}`);
-      return null;
-    }
+  if (oldChart) {
+    oldChart.destroy();
+  }
 
-    if (oldChart) {
-      oldChart.destroy();
-    }
+  // Plugin lokal untuk menampilkan angka di atas batang
+  const valueLabelsPlugin = {
+    id: "agronomiValueLabels",
 
-    return new Chart(canvas, {
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
 
-      type: "bar",
+      ctx.save();
+      ctx.font = "bold 11px Arial";
+      ctx.fillStyle = "#46564d";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
 
-      data: {
+      chart.data.datasets.forEach((dataset, datasetIndex) => {
+        const meta = chart.getDatasetMeta(datasetIndex);
 
-        labels: labels,
+        meta.data.forEach((bar, index) => {
+          const value = dataset.data[index];
 
-        datasets: [
-          {
-            label: "PG1",
-            data: getData(metric, "PG1"),
-            backgroundColor: pgColors[0]
-          },
-
-          {
-            label: "PG2",
-            data: getData(metric, "PG2"),
-            backgroundColor: pgColors[1]
-          },
-
-          {
-            label: "PG3",
-            data: getData(metric, "PG3"),
-            backgroundColor: pgColors[2]
-          },
-
-          {
-            label: "PG4",
-            data: getData(metric, "PG4"),
-            backgroundColor: pgColors[3]
+          if (
+            value === null ||
+            value === undefined ||
+            !Number.isFinite(Number(value)) ||
+            Number(value) === 0
+          ) {
+            return;
           }
-        ]
 
+          ctx.fillText(
+            `${Number(value.toFixed(1)).toString()}%`,
+            bar.x,
+            bar.y - 5
+          );
+        });
+      });
+
+      ctx.restore();
+    }
+  };
+
+  return new Chart(canvas, {
+    type: "bar",
+
+    data: {
+      labels: labels,
+
+      datasets: [
+        {
+          label: "PG1",
+          data: getData(metric, "PG1"),
+          backgroundColor: pgColors[0]
+        },
+        {
+          label: "PG2",
+          data: getData(metric, "PG2"),
+          backgroundColor: pgColors[1]
+        },
+        {
+          label: "PG3",
+          data: getData(metric, "PG3"),
+          backgroundColor: pgColors[2]
+        },
+        {
+          label: "PG4",
+          data: getData(metric, "PG4"),
+          backgroundColor: pgColors[3]
+        }
+      ]
+    },
+
+    plugins: [valueLabelsPlugin],
+
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+
+      layout: {
+        padding: {
+          top: 18
+        }
       },
 
-      options: {
-
-        responsive: true,
-
-        maintainAspectRatio: false,
-
-        plugins: {
-
-          legend: {
-            position: "bottom"
-          },
-
-          title: {
-            display: true,
-            text: title
-          },
-
-          tooltip: {
-            callbacks: {
-
-              label: function(context) {
-
-                const value = context.raw;
-
-                if (
-                  value === null ||
-                  value === undefined
-                ) {
-                  return `${context.dataset.label}: -`;
-                }
-
-                return `${context.dataset.label}: ${value}%`;
-
-              }
-
-            }
-          }
-
+      plugins: {
+        legend: {
+          position: "bottom"
         },
 
-        scales: {
+        title: {
+          display: true,
+          text: title
+        },
 
-          y: {
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.raw;
 
-            beginAtZero: true,
-
-            max: 100,
-
-            ticks: {
-
-              callback: function(value) {
-                return value + "%";
+              if (value === null || value === undefined) {
+                return `${context.dataset.label}: -`;
               }
 
+              return `${context.dataset.label}: ${value}%`;
             }
-
           }
-
         }
+      },
 
+      scales: {
+        y: {
+          beginAtZero: true,
+          min: 0,
+          max: 100,
+
+          ticks: {
+            stepSize: 10,
+            callback: function(value) {
+              return `${value}%`;
+            }
+          }
+        }
       }
-
-    });
-
-  }
+    }
+  });
+}
 
   agronomiDownGradeChart = createChart(
     "agronomiDownGradeChart",
@@ -5711,229 +7080,229 @@ function renderAgronomiCharts(rows) {
 // AGRONOMI - RENDER TABEL
 // =========================================================
 
-function renderAgronomi(rows) {
 
+function renderAgronomi(rows) {
   const tbody = document.getElementById("agronomiTableBody");
   const thead = document.getElementById("agronomiTableHead");
   const recordCount = document.getElementById("agronomiRecordCount");
 
-  if (!tbody || !thead) {
-    return;
-  }
+  if (!tbody || !thead) return;
 
   tbody.innerHTML = "";
   thead.innerHTML = "";
 
   if (!Array.isArray(rows) || !rows.length) {
-
-    if (recordCount) {
-      recordCount.textContent = "0";
-    }
-
+    if (recordCount) recordCount.textContent = "0";
     tbody.innerHTML = `
-      <tr>
-        <td colspan="47" class="table-empty">
-          Tidak ada data Agronomi.
-        </td>
-      </tr>
-    `;
-
+      <tr><td colspan="48" class="table-empty">
+        Tidak ada data Agronomi.
+      </td></tr>`;
     return;
   }
 
-  // =====================================================
-  // FILTER
-  // =====================================================
-
-  const yearFilter =
-    document.getElementById("agronomiYearFilter");
-
-  const pgFilter =
-    document.getElementById("agronomiPGFilter");
-
-  const wilayahFilter =
-    document.getElementById("agronomiWilayahFilter");
-
-  const weekFilter =
-    document.getElementById("agronomiWeekFilter");
-
   const selectedYear =
-    yearFilter?.value || "all";
-
+    document.getElementById("agronomiYearFilter")?.value || "all";
   const selectedPG =
-    pgFilter?.value || "all";
-
+    document.getElementById("agronomiPGFilter")?.value || "all";
   const selectedWilayah =
-    wilayahFilter?.value || "all";
-
+    document.getElementById("agronomiWilayahFilter")?.value || "all";
   const selectedWeek =
-    weekFilter?.value || "all";
-
-  console.log("🔎 Filter tabel Agronomi:", {
-    tahun: selectedYear,
-    pg: selectedPG,
-    wilayah: selectedWilayah,
-    week: selectedWeek
-  });
-
-  // =====================================================
-  // FILTER DATA
-  // =====================================================
+    document.getElementById("agronomiWeekFilter")?.value || "all";
 
   const filteredRows = rows.filter(row => {
+    const v = row.values || [];
 
-    const values = Array.isArray(row.values)
-      ? row.values
-      : [];
-
-    /*
-      Excel baru:
-
-      D = Week       → index 3
-      F = Tahun      → index 5
-      H = Wilayah    → index 7
-      J = PG         → index 9
-    */
-
-    const week =
-      String(values[3] ?? "").trim();
-
-    const year =
-      String(values[5] ?? "").trim();
-
-    const wilayah =
-      String(values[7] ?? "").trim();
-
-    const pg =
-      String(values[9] ?? "").trim();
-
-    // Tahun = filter utama
-    if (
-      selectedYear !== "all" &&
-      year !== String(selectedYear)
-    ) {
-      return false;
-    }
-
-    // PG
-    if (
-      selectedPG !== "all" &&
-      pg !== selectedPG
-    ) {
-      return false;
-    }
-
-    // Wilayah
-    if (
-      selectedWilayah !== "all" &&
-      wilayah !== selectedWilayah
-    ) {
-      return false;
-    }
-
-    // Week
-    if (
-      selectedWeek !== "all" &&
-      week !== selectedWeek
-    ) {
-      return false;
-    }
-
-    return true;
+    return (selectedYear === "all" || String(v[5] ?? "").trim() === selectedYear)
+      && (selectedPG === "all" || String(v[9] ?? "").trim() === selectedPG)
+      && (selectedWilayah === "all" || String(v[7] ?? "").trim() === selectedWilayah)
+      && (selectedWeek === "all" || String(v[3] ?? "").trim() === selectedWeek);
   });
 
-  console.log(
-    `📊 Data Agronomi setelah filter: ${filteredRows.length}`
-  );
-
-  // =====================================================
-  // HEADER
-  // =====================================================
-
-  const headers =
-    rows[0]?.headers || [];
-
-  const headerRow =
-    document.createElement("tr");
+  const headers = rows[0]?.headers || [];
+  const headerRow = document.createElement("tr");
 
   headers.forEach(header => {
-
-    const th =
-      document.createElement("th");
-
-    th.textContent =
-      header || "-";
-
+    const th = document.createElement("th");
+    th.textContent = header || "-";
     headerRow.appendChild(th);
   });
 
+  const actionHead = document.createElement("th");
+  actionHead.textContent = "Aksi";
+  headerRow.appendChild(actionHead);
   thead.appendChild(headerRow);
 
-  // =====================================================
-  // JIKA TIDAK ADA DATA
-  // =====================================================
-
   if (!filteredRows.length) {
-
     tbody.innerHTML = `
-      <tr>
-        <td
-          colspan="${headers.length || 47}"
-          class="table-empty"
-        >
-          Tidak ada data yang sesuai dengan filter.
-        </td>
-      </tr>
-    `;
-
-    if (recordCount) {
-      recordCount.textContent = "0";
-    }
-
+      <tr><td colspan="${headers.length + 1}" class="table-empty">
+        Tidak ada data yang sesuai dengan filter.
+      </td></tr>`;
+    if (recordCount) recordCount.textContent = "0";
     return;
   }
 
-  // =====================================================
-  // TAMPILKAN DATA
-  // =====================================================
-
   filteredRows.forEach(row => {
+    const tr = document.createElement("tr");
 
-    const tr =
-      document.createElement("tr");
-
-    const values =
-      Array.isArray(row.values)
-        ? row.values
-        : [];
-
-    headers.forEach((header, index) => {
-
-      const td =
-        document.createElement("td");
-
-      td.textContent =
-        values[index] ?? "";
-
+    (row.values || []).forEach(value => {
+      const td = document.createElement("td");
+      td.textContent = value ?? "";
       tr.appendChild(td);
     });
 
+    const actionTd = document.createElement("td");
+    actionTd.className = "table-actions";
+
+    if (staff()) {
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "btn btn-light";
+      editBtn.textContent = "✏️ Edit";
+      editBtn.addEventListener("click", () => editAgronomiRow(row));
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "btn btn-danger";
+      deleteBtn.textContent = "🗑️ Hapus";
+      deleteBtn.addEventListener("click", () => deleteAgronomiRow(row));
+
+      actionTd.append(editBtn, deleteBtn);
+    } else {
+      actionTd.textContent = "—";
+    }
+
+    tr.appendChild(actionTd);
     tbody.appendChild(tr);
   });
 
-  // =====================================================
-  // JUMLAH DATA
-  // =====================================================
+  if (recordCount) recordCount.textContent = filteredRows.length;
+}
 
-  if (recordCount) {
-    recordCount.textContent =
-      filteredRows.length;
+
+async function editAgronomiRow(row) {
+  if (!staff()) {
+    alert("Silakan login sebagai Petugas terlebih dahulu.");
+    return;
   }
 
-  console.log(
-    "🌿 Tabel Agronomi ditampilkan:",
-    filteredRows.length
-  );
+  const headers = row.headers || [];
+  const values = [...(row.values || [])];
+
+  // Form edit dibuat sesuai semua kolom Excel.
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.style.display = "flex";
+  modal.style.zIndex = "9999";
+
+  const dialog = document.createElement("div");
+  dialog.className = "modal-dialog";
+  dialog.style.maxHeight = "85vh";
+  dialog.style.overflowY = "auto";
+
+  const title = document.createElement("h2");
+  title.textContent = "Edit Data Agronomi";
+
+  const description = document.createElement("p");
+  description.textContent = "Perubahan akan disimpan ke Supabase.";
+
+  const form = document.createElement("form");
+  const fields = [];
+
+  headers.forEach((header, index) => {
+    const label = document.createElement("label");
+    label.textContent = header || `Kolom ${index + 1}`;
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = String(values[index] ?? "");
+    input.style.width = "100%";
+    input.style.marginBottom = "12px";
+
+    fields.push(input);
+    form.append(label, input);
+  });
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "submit";
+  saveBtn.className = "btn btn-primary";
+  saveBtn.textContent = "💾 Simpan Perubahan";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "btn btn-light";
+  cancelBtn.textContent = "Batal";
+  cancelBtn.style.marginLeft = "8px";
+  cancelBtn.addEventListener("click", () => modal.remove());
+
+  form.append(saveBtn, cancelBtn);
+  dialog.append(title, description, form);
+  modal.appendChild(dialog);
+  document.body.appendChild(modal);
+
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    if (!staff()) {
+      alert("Sesi Petugas tidak aktif. Silakan login kembali.");
+      return;
+    }
+
+    const updatedValues = fields.map(input => input.value);
+
+    if (!confirm("Simpan perubahan data Agronomi ini?")) return;
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Menyimpan...";
+
+    const { error } = await qcSupabase
+      .from("agronomi_data")
+      .update({ row_data: updatedValues })
+      .eq("id", row.id);
+
+    if (error) {
+      console.error("Gagal mengedit Agronomi:", error);
+      alert("Data gagal diperbarui. Periksa Console dan policy UPDATE.");
+      saveBtn.disabled = false;
+      saveBtn.textContent = "💾 Simpan Perubahan";
+      return;
+    }
+
+    modal.remove();
+
+    const refreshedRows = await getAgronomiFromSupabase();
+    updateAgronomiTableFilters(refreshedRows);
+    renderAgronomi(refreshedRows);
+    renderAgronomiCharts(refreshedRows);
+
+    alert("Data Agronomi berhasil diperbarui.");
+  });
+}
+
+async function deleteAgronomiRow(row) {
+  if (!staff()) {
+    alert("Silakan login sebagai Petugas terlebih dahulu.");
+    return;
+  }
+
+  if (!confirm("Yakin ingin menghapus baris data Agronomi ini?")) return;
+
+  const { error } = await qcSupabase
+    .from("agronomi_data")
+    .delete()
+    .eq("id", row.id);
+
+  if (error) {
+    console.error("Gagal menghapus Agronomi:", error);
+    alert("Data gagal dihapus. Periksa Console dan policy DELETE.");
+    return;
+  }
+
+  const refreshedRows = await getAgronomiFromSupabase();
+  updateAgronomiTableFilters(refreshedRows);
+  renderAgronomi(refreshedRows);
+  renderAgronomiCharts(refreshedRows);
+
+  alert("Data Agronomi berhasil dihapus.");
 }
 
 function showAgronomiLoading() {
