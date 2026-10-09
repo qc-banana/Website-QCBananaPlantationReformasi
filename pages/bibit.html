@@ -133,10 +133,68 @@
         </table>
       </div>
     </section>
-      <section class="filter-bar bibit-table-filter">
 
+    <!-- =============================== -->
+    <!-- DOKUMENTASI BIBIT -->
+    <!-- =============================== -->
+
+    <section class="bibit-documentation">
+
+      <div class="documentation-header">
+
+        <div>
+          <h3>Dokumentasi Bibit</h3>
+          <p>Kumpulan dokumentasi kegiatan Bibit.</p>
+        </div>
+
+        <button
+          type="button"
+          id="bibitDocumentationUploadBtn"
+          class="primary-btn">
+          📷 Upload Foto
+        </button>
+
+        <input
+          type="file"
+          id="bibitDocumentationInput"
+          accept="image/*"
+          multiple
+          hidden>
+
+      </div>
+
+      <div
+        id="bibitDocumentationInfo"
+        class="documentation-info">
+        Dokumentasi kegiatan Bibit.
+      </div>
+
+      <div class="documentation-search">
+
+        <input
+          type="text"
+          id="bibitDocumentationSearch"
+          placeholder="🔎 Cari dokumentasi berdasarkan keterangan..."
+          autocomplete="off">
+
+      </div>
+
+      <div
+        id="bibitDocumentationGrid"
+        class="documentation-grid">
+
+        <div class="documentation-empty">
+          Belum ada dokumentasi foto.
+        </div>
+
+      </div>
 
     </section>
+
+    <!-- =============================== -->
+    <!-- CATATAN -->
+    <!-- =============================== -->
+
     <section class="bibit-note panel">
       <div class="panel-header">
         <span class="eyebrow">CATATAN</span>
