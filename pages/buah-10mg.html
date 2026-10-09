@@ -11,7 +11,7 @@
 
   <aside id="sidebar" class="sidebar">
     <div class="brand">
-      <div class="brand-icon">🍌</div>
+      <img src="images/logoGGF.webp" class="banana-icon" alt="Banana">
       <div>
         <strong>QC Banana Reformasi</strong>
         <span>Quality Control</span>
@@ -96,23 +96,16 @@
       <div class="table-wrap">
         <table class="data-table">
           <thead>
-            <tr>
-              <th>Tanggal</th>
-              <th>Tahun</th>
-              <th>Wilayah / PG</th>
-              <th>Lokasi</th>
-              <th>Parameter</th>
-              <th>Hasil</th>
-              <th>Status</th>
-              <th id="actionHead" class="hidden">Aksi</th>
-            </tr>
+            <tr id="buah10mgTableHead"></tr>
           </thead>
           <tbody id="dataTableBody"></tbody>
         </table>
       </div>
     </section>
 
-    <footer class="footer">QC Banana • Data demo disimpan di localStorage browser</footer>
+    <footer class="footer">
+    QC Banana Plantation • Quality Control Data
+    </footer>
   </main>
 
   <div id="loginModal" class="modal hidden">
@@ -130,7 +123,6 @@
         <div id="loginError" class="form-error hidden"></div>
         <button class="btn btn-primary btn-full">Login</button>
       </form>
-      <div class="demo-credential">Demo: <b>petugas</b> / <b>qcbanana</b></div>
     </div>
   </div>
 
@@ -139,8 +131,8 @@
     <div class="modal-dialog">
       <button class="modal-close" data-close-data>×</button>
       <div class="modal-icon">📝</div>
-      <h2 id="dataModalTitle">Tambah Data QC</h2>
-      <p>Isi data pengamatan. Data disimpan di browser.</p>
+      <h2 id="dataModalTitle">Tambah Data Buah 10 MG</h2>
+      <p>Masukkan data pemeriksaan buah sesuai format QC.</p>
       <form id="dataForm">
         <input type="hidden" id="editIndex">
         <label>Tanggal</label>
@@ -178,7 +170,14 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="../js/script.js"></script>
+  
+<!-- Library Supabase: harus dimuat sebelum script.js -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Library untuk membaca Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- Script utama website -->
+<script src="../js/script.js"></script>
 </body>
 </html>
