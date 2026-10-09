@@ -1488,6 +1488,14 @@ select {
   border-radius: 18px;
   box-sizing: border-box;
 }
+.bibit-documentation {
+  margin-top: 24px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #dfe8e2;
+  border-radius: 18px;
+  box-sizing: border-box;
+}
 
 .documentation-header {
   display: flex;
@@ -1609,6 +1617,20 @@ select {
   box-shadow: 0 0 0 3px rgba(36, 91, 60, 0.08);
 }
 
+.documentation-delete-btn {
+  margin-top: 10px;
+  padding: 7px 11px;
+  border: none;
+  border-radius: 8px;
+  background: #c62828;
+  color: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.documentation-delete-btn:hover {
+  background: #a61f1f;
+}
 /* =====================================================
    FILTER TABEL AGRONOMI
    ===================================================== */
@@ -1733,4 +1755,212 @@ select {
   z-index: 10;
   background: #173f2a;
   color: #ffffff;
+}
+
+
+/* Tombol aksi tabel Propping */
+#proppingTableBody td:last-child {
+  white-space: nowrap;
+  min-width: 150px;
+}
+
+#proppingTableBody td:last-child button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 13px;
+  margin: 3px 2px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+/* Tombol Edit - biru muda */
+#proppingTableBody td:last-child button:first-child {
+  background: #e8f3ff;
+  color: #1671c5;
+}
+
+#proppingTableBody td:last-child button:first-child:hover {
+  background: #d5e9ff;
+}
+
+/* Tombol Hapus - merah muda */
+#proppingTableBody td:last-child button:last-child {
+  background: #fff0f0;
+  color: #d93645;
+}
+
+#proppingTableBody td:last-child button:last-child:hover {
+  background: #ffe0e0;
+}
+
+
+/* Tombol aksi tabel Agronomi */
+#agronomiTableBody td:last-child {
+  white-space: nowrap;
+  min-width: 150px;
+}
+
+#agronomiTableBody td:last-child button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 13px;
+  margin: 3px 2px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+/* Tombol Edit - biru muda */
+#agronomiTableBody td:last-child button:first-child {
+  background: #e8f3ff;
+  color: #1671c5;
+}
+
+#agronomiTableBody td:last-child button:first-child:hover {
+  background: #d5e9ff;
+}
+
+/* Tombol Hapus - merah muda */
+#agronomiTableBody td:last-child button:last-child {
+  background: #fff0f0;
+  color: #d93645;
+}
+
+#agronomiTableBody td:last-child button:last-child:hover {
+  background: #ffe0e0;
+}
+
+
+/* Aksi tabel Buah 10 MG */
+#dataTableBody .buah10mg-actions {
+  white-space: nowrap;
+  min-width: 155px;
+}
+
+#dataTableBody .buah10mg-actions button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 13px;
+  margin: 3px 2px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  box-shadow: none;
+}
+
+/* Edit - biru muda */
+#dataTableBody .buah10mg-actions .edit-btn {
+  background: #e8f3ff;
+  color: #1671c5;
+}
+
+#dataTableBody .buah10mg-actions .edit-btn:hover {
+  background: #d5e9ff;
+}
+
+/* Hapus - merah muda */
+#dataTableBody .buah10mg-actions .delete-btn {
+  background: #fff0f0;
+  color: #d93645;
+}
+
+#dataTableBody .buah10mg-actions .delete-btn:hover {
+  background: #ffe0e0;
+}
+
+/* Form Edit Buah 10 MG */
+.buah10mg-edit-modal h2 {
+  margin-top: 0;
+  color: #173f2a;
+}
+
+.buah10mg-edit-modal input:focus {
+  outline: 2px solid #b6d8c3;
+  border-color: #245b3c;
+}
+
+/* Freeze header tabel Buah 10 MG */
+.table-wrap {
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.table-wrap .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #173f2a;
+  color: #ffffff;
+}
+
+
+/* =====================================
+   AGRONOMI - LAYOUT GRAFIK
+===================================== */
+
+.agronomi-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.agronomi-chart-card {
+  min-width: 0;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e1e9e3;
+  border-radius: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.agronomi-chart-card .chart-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.agronomi-chart-card .chart-card-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #173f2a;
+}
+
+.agronomi-chart-card .chart-card-title span {
+  color: #78877e;
+  font-size: 13px;
+  text-align: right;
+}
+
+.agronomi-chart-card .propping-chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  min-width: 0;
+}
+
+/* Tampilan HP: satu grafik per baris */
+@media (max-width: 700px) {
+  .agronomi-chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .agronomi-chart-card {
+    padding: 14px;
+  }
+
+  .agronomi-chart-card .propping-chart-wrap {
+    height: 280px;
+  }
 }
