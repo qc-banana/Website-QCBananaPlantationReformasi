@@ -89,7 +89,7 @@ select {
   padding: 24px 18px;
   display: flex;
   flex-direction: column;
-  z-index: 1000;
+  z-index: 1200;
   transform: translateX(-100%);
   transition: transform var(--transition-sidebar);
   box-shadow: 12px 0 35px rgba(0, 0, 0, 0.12);
@@ -103,7 +103,7 @@ select {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
-  z-index: 900;
+  z-index: 1100;
   display: none;
 }
 
@@ -190,13 +190,21 @@ select {
 /* ==========================================================================
    5. TOPBAR & HEADERS
    ========================================================================== */
+
 .topbar {
   min-height: 82px;
   display: flex;
   align-items: center;
   gap: 16px;
   border-bottom: 1px solid var(--border);
+
+  /* Header tetap terlihat saat halaman di-scroll */
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #f5f7f9;
 }
+
 
 .menu-toggle {
   width: 44px;
@@ -1963,4 +1971,109 @@ select {
   .agronomi-chart-card .propping-chart-wrap {
     height: 280px;
   }
+}
+
+
+/* Frame dokumentasi Agronomi */
+.agronomi-documentation {
+  background: #ffffff;
+  border: 1px solid #d9e5dd;
+  border-radius: 24px;
+  padding: 30px;
+  margin: 24px 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Header dokumentasi */
+.agronomi-documentation .documentation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.agronomi-documentation .documentation-header h3 {
+  margin: 0 0 12px;
+}
+
+.agronomi-documentation .documentation-header p {
+  margin: 0;
+}
+
+/* Kotak informasi */
+.agronomi-documentation .documentation-info {
+  background: #f3f7f4;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 22px;
+}
+
+/* Kolom pencarian */
+.agronomi-documentation .documentation-search {
+  margin-bottom: 24px;
+}
+
+.agronomi-documentation .documentation-search input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Area galeri */
+.agronomi-documentation .documentation-grid {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
+/* =========================================
+   DOKUMENTASI BUAH
+========================================= */
+
+.buah-documentation {
+  background: #ffffff;
+  border: 1px solid #d9e5dd;
+  border-radius: 24px;
+  padding: 30px;
+  margin: 24px 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.buah-documentation .documentation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.buah-documentation .documentation-header h3 {
+  margin: 0 0 12px;
+}
+
+.buah-documentation .documentation-header p {
+  margin: 0;
+}
+
+.buah-documentation .documentation-info {
+  background: #f3f7f4;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 22px;
+}
+
+.buah-documentation .documentation-search {
+  margin-bottom: 24px;
+}
+
+.buah-documentation .documentation-search input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.buah-documentation .documentation-grid {
+  width: 100%;
+  box-sizing: border-box;
 }
