@@ -11,6 +11,8 @@
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Plugin untuk menampilkan angka di atas batang -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   
 </head>
 
@@ -29,11 +31,7 @@
 
     <div class="brand">
 
-      <img
-        src="images/logoGGF.webp"
-        class="banana-icon"
-        alt="GGF Logo"
-      >
+      <img src="../images/logoGGF.webp" class="banana-icon" alt="Banana">
 
       <div>
         <strong>QC Banana Reformasi</strong>
@@ -336,200 +334,40 @@
          GRAFIK AGRONOMI
     ================================================== -->
 
-    <section class="propping-chart-panel panel">
+    
+<section class="propping-chart-panel panel">
 
+  <div class="panel-header chart-header">
+    <div>
+      <span class="eyebrow">ANALISIS AGRONOMI</span>
+      <h2>📊 Analisis Quartal</h2>
+      <p>
+        Perbandingan hasil agronomi PG1, PG2, PG3,
+        dan PG4 berdasarkan Quartal.
+      </p>
+    </div>
+  </div>
 
-      <div class="panel-header chart-header">
+  <div class="agronomi-chart-grid" id="agronomiChartGrid"></div>
 
-        <div>
-
-          <span class="eyebrow">
-            ANALISIS AGRONOMI
-          </span>
-
-          <h2>
-            📊 Analisis Quartal
-          </h2>
-
-          <p>
-            Perbandingan hasil agronomi PG1, PG2, PG3,
-            dan PG4 berdasarkan Quartal.
-          </p>
-
-        </div>
-
-      </div>
-      <div class="agronomi-chart-grid">
-
-      <!-- =========================
-           CHART 1
-           DOWN GRADE
-      ========================== -->
-
-      <div class="agronomi-chart-card">
-
-        <div class="chart-card-title">
-
-          <h3>
-            Down Grade
-          </h3>
-
-          <span>
-            ≤ 13 CM
-          </span>
-
-        </div>
-
-
-        <div class="propping-chart-wrap">
-
-          <canvas
-            id="agronomiDownGradeChart"
-          ></canvas>
-
-        </div>
-
-      </div>
+</section>
 
 
 
-      <!-- =========================
-           CHART 2
-           UNDER STANDARD
-      ========================== -->
+   <!-- TABEL DATA PER WEEK -->
+<section class="table-panel panel">
 
-      <div class="agronomi-chart-card">
-
-        <div class="chart-card-title">
-
-          <h3>
-            Under Standard
-          </h3>
-
-          <span>
-            Sesuai kategori umur
-          </span>
-
-        </div>
-
-
-        <div class="propping-chart-wrap">
-
-          <canvas
-            id="agronomiUnderStandardChart"
-          ></canvas>
-
-        </div>
-
-      </div>
-
-
-
-      <!-- =========================
-           CHART 3
-           STANDARD
-      ========================== -->
-
-      <div class="agronomi-chart-card">
-
-        <div class="chart-card-title">
-
-          <h3>
-            Standard
-          </h3>
-
-          <span>
-            Sesuai kategori umur
-          </span>
-
-        </div>
-
-
-        <div class="propping-chart-wrap">
-
-          <canvas
-            id="agronomiStandardChart"
-          ></canvas>
-
-        </div>
-
-      </div>
-
-
-
-      <!-- =========================
-           CHART 4
-           SATISFACTORY
-      ========================== -->
-
-      <div class="agronomi-chart-card">
-
-        <div class="chart-card-title">
-
-          <h3>
-            Satisfactory
-          </h3>
-
-          <span>
-            Sesuai kategori umur
-          </span>
-
-        </div>
-
-
-        <div class="propping-chart-wrap">
-
-          <canvas
-            id="agronomiSatisfactoryChart"
-          ></canvas>
-
-        </div>
-
-      </div>
+  <div class="table-toolbar">
+    <div>
+      <span class="eyebrow">DATA AGRONOMI</span>
+      <h2>Data Per Week</h2>
     </div>
 
-    </section>
-
-
-
-    <!-- =================================================
-         TABEL DATA PER WEEK
-    ================================================== -->
-
-    <section class="table-panel panel">
-
-
-      <div class="table-toolbar">
-
-
-        <div>
-
-          <span class="eyebrow">
-            DATA AGRONOMI
-          </span>
-
-          <h2>
-            Data Per Week
-          </h2>
-
-        </div>
-
-
-        <div class="table-note">
-
-          <b id="agronomiRecordCount">
-            0
-          </b>
-
-          data tampil
-
-        </div>
-
-      </div>
-
-
-
-      <div class="table-wrap">
+    <div class="table-note">
+      <b id="agronomiRecordCount">0</b>
+      data tampil
+    </div>
+  </div>
 
   <!-- FILTER KHUSUS TABEL -->
   <div class="agronomi-table-filters">
@@ -565,29 +403,77 @@
 
   </div>
 
+  <!-- AREA TABEL -->
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead id="agronomiTableHead">
+        <!-- Header diisi berdasarkan data Excel -->
+      </thead>
 
-  <table class="data-table">
+      <tbody id="agronomiTableBody">
+        <tr>
+          <td colspan="20" class="table-loading">
+            Memuat data...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-    <thead id="agronomiTableHead">
+</section>
+<!-- =========================================
+     DOKUMENTASI AGRONOMI
+========================================== -->
+<div class="agronomi-documentation">
 
-      <!-- Header akan diisi berdasarkan
-           data Excel Data Per week -->
+  <div class="documentation-header">
+    <div>
+      <h3>Dokumentasi Agronomi</h3>
+      <p>Kumpulan dokumentasi kegiatan Agronomi.</p>
+    </div>
 
-    </thead>
+    <button
+      type="button"
+      id="agronomiDocumentationUploadBtn"
+      class="primary-btn">
+      📷 Upload Foto
+    </button>
 
-    <tbody id="agronomiTableBody">
-      <tr>
-        <td colspan="20" class="table-loading">
-          Memuat data...
-        </td>
-      </tr>
-    </tbody>
+    <input
+      type="file"
+      id="agronomiDocumentationInput"
+      accept="image/*"
+      multiple
+      hidden>
+  </div>
 
-  </table>
+  <div
+    id="agronomiDocumentationInfo"
+    class="documentation-info">
+    Dokumentasi kegiatan Agronomi.
+  </div>
+
+  <div class="documentation-search">
+    <input
+      type="text"
+      id="agronomiDocumentationSearch"
+      placeholder="🔎 Cari dokumentasi berdasarkan keterangan..."
+      autocomplete="off">
+  </div>
+
+  <!-- Tempat foto ditampilkan -->
+  <div
+    id="agronomiDocumentationGrid"
+    class="documentation-grid">
+
+    <div class="documentation-empty">
+      Belum ada dokumentasi foto.
+    </div>
+
+  </div>
 
 </div>
-
-    </section>
+    
 
 
 
