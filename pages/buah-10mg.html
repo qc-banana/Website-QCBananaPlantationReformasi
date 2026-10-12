@@ -11,7 +11,7 @@
 
   <aside id="sidebar" class="sidebar">
     <div class="brand">
-      <img src="images/logoGGF.webp" class="banana-icon" alt="Banana">
+      <img src="../images/logoGGF.webp" class="banana-icon" alt="Banana">
       <div>
         <strong>QC Banana Reformasi</strong>
         <span>Quality Control</span>
@@ -102,6 +102,49 @@
         </table>
       </div>
     </section>
+
+    
+<!-- DOKUMENTASI BUAH -->
+<div class="buah-documentation">
+  <div class="documentation-header">
+    <div>
+      <h3>Dokumentasi Buah</h3>
+      <p>Kumpulan dokumentasi kegiatan QC Buah.</p>
+    </div>
+
+    <button
+      type="button"
+      id="buahDocumentationUploadBtn"
+      class="primary-btn">
+      📷 Upload Foto
+    </button>
+
+    <input
+      type="file"
+      id="buahDocumentationInput"
+      accept="image/*"
+      multiple
+      hidden>
+  </div>
+
+  <div id="buahDocumentationInfo" class="documentation-info">
+    Dokumentasi kegiatan QC Buah.
+  </div>
+
+  <div class="documentation-search">
+    <input
+      type="text"
+      id="buahDocumentationSearch"
+      placeholder="🔎 Cari dokumentasi berdasarkan keterangan..."
+      autocomplete="off">
+  </div>
+
+  <div id="buahDocumentationGrid" class="documentation-grid">
+    <div class="documentation-empty">
+      Memuat dokumentasi...
+    </div>
+  </div>
+</div>
 
     <footer class="footer">
     QC Banana Plantation • Quality Control Data
