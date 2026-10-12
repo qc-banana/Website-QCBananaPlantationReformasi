@@ -5,6 +5,11 @@ const BIBIT_HEADERS_KEY = "qcBananaBibitHeaders";
 const SUPABASE_URL = "https://dbhgwqsrybfflymwoclh.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_uLhOuqURk-ahjxOCXNmw9g_q10IG5yJ";
 
+
+if (typeof ChartDataLabels !== "undefined") {
+  Chart.register(ChartDataLabels);
+}
+
 const qcSupabase = window.supabase
   ? window.supabase.createClient(
       SUPABASE_URL,
@@ -928,7 +933,7 @@ async function importBuah10mg(file) {
   }
 }
 
-function setupBuah10mg() {
+async function setupBuah10mg() {
   const body = document.getElementById("dataTableBody");
   if (!body) return;
 
@@ -971,6 +976,114 @@ function setupBuah10mg() {
     });
 
   loadBuah10mgFromSupabase();
+
+  
+  // =====================================================
+  // DOKUMENTASI BUAH
+  // =====================================================
+
+  const documentationUploadBtn = document.getElementById(
+    "buahDocumentationUploadBtn"
+  );
+
+  const documentationInput = document.getElementById(
+    "buahDocumentationInput"
+  );
+
+  const documentationSearch = document.getElementById(
+    "buahDocumentationSearch"
+  );
+
+  // Tombol upload hanya tampil untuk Petugas
+  if (documentationUploadBtn) {
+    documentationUploadBtn.style.display =
+      localStorage.getItem(LOGIN_KEY) === "true" ? "" : "none";
+  }
+
+  // Klik Upload Foto
+  documentationUploadBtn?.addEventListener("click", () => {
+    if (!staff()) {
+      alert("Silakan login sebagai Petugas terlebih dahulu.");
+      return;
+    }
+
+    documentationInput?.click();
+  });
+
+  // Proses upload foto
+  documentationInput?.addEventListener("change", async (event) => {
+    const files = Array.from(event.target.files || []);
+
+    if (files.length === 0) return;
+
+    if (!qcSupabase) {
+      alert("Supabase belum tersedia.");
+      documentationInput.value = "";
+      return;
+    }
+
+    if (!staff()) {
+      alert("Silakan login sebagai Petugas terlebih dahulu.");
+      documentationInput.value = "";
+      return;
+    }
+
+    const keterangan = prompt(
+      "Masukkan keterangan untuk foto dokumentasi Buah:"
+    );
+
+    if (keterangan === null || !keterangan.trim()) {
+      alert("Upload dibatalkan. Keterangan foto wajib diisi.");
+      documentationInput.value = "";
+      return;
+    }
+
+    let berhasil = 0;
+
+    for (const file of files) {
+      try {
+        const fotoUrl = await uploadBuahDocumentation(file);
+
+        if (!fotoUrl) continue;
+
+        const { error } = await qcSupabase
+          .from("buah_documentation")
+          .insert({
+            foto_url: fotoUrl,
+            keterangan: keterangan.trim()
+          });
+
+        if (error) {
+          console.error("Gagal menyimpan data foto Buah:", error);
+          alert("Foto terunggah, tetapi data gagal disimpan: " + error.message);
+          continue;
+        }
+
+        berhasil++;
+      } catch (error) {
+        console.error("Gagal upload dokumentasi Buah:", error);
+      }
+    }
+
+    documentationInput.value = "";
+
+    if (berhasil > 0) {
+      alert(`${berhasil} foto dokumentasi Buah berhasil disimpan.`);
+    } else {
+      alert("Belum ada foto yang berhasil disimpan.");
+    }
+
+    await loadBuahDocumentation(documentationSearch?.value || "");
+  });
+
+  // Pencarian dokumentasi
+  documentationSearch?.addEventListener("input", () => {
+    loadBuahDocumentation(documentationSearch.value);
+  });
+
+  // Tampilkan dokumentasi ketika halaman dibuka
+  await loadBuahDocumentation(documentationSearch?.value || "");
+
 }
 
 function bibitFormValue(id) {
@@ -3096,6 +3209,444 @@ async function uploadBibitDocumentation(file) {
     );
 
     return null;
+  }
+}
+
+
+async function uploadAgronomiDocumentation(file) {
+  if (!qcSupabase) {
+    alert("Supabase belum tersedia.");
+    return null;
+  }
+
+  if (!file) return null;
+
+  try {
+    const extension = file.name.split(".").pop();
+
+    const fileName =
+      `agronomi_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 8)}.${extension}`;
+
+    const filePath = `agronomi/${fileName}`;
+
+    const { error: uploadError } = await qcSupabase.storage
+      .from("qc-documentation")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error("Gagal upload foto Agronomi:", uploadError);
+      alert("Gagal upload foto: " + uploadError.message);
+      return null;
+    }
+
+    const { data } = qcSupabase.storage
+      .from("qc-documentation")
+      .getPublicUrl(filePath);
+
+    return data?.publicUrl || null;
+
+  } catch (error) {
+    console.error("Error upload dokumentasi Agronomi:", error);
+    alert("Terjadi kesalahan saat upload foto.");
+    return null;
+  }
+}
+
+
+async function loadAgronomiDocumentation(searchText = "") {
+  const grid = document.getElementById("agronomiDocumentationGrid");
+  const info = document.getElementById("agronomiDocumentationInfo");
+
+  if (!grid) return;
+
+  if (!qcSupabase) {
+    grid.innerHTML = `
+      <div class="documentation-empty">
+        Supabase belum tersedia.
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = `
+    <div class="documentation-empty">
+      Memuat dokumentasi...
+    </div>`;
+
+  try {
+    const keyword = String(searchText || "").trim();
+
+    let query = qcSupabase
+      .from("agronomi_documentation")
+      .select("id,foto_url,keterangan,created_at")
+      .order("created_at", { ascending: false });
+
+    if (keyword) {
+      query = query.ilike("keterangan", `%${keyword}%`);
+    } else {
+      query = query.limit(5);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      grid.innerHTML = `
+        <div class="documentation-empty">
+          ${keyword
+            ? "Dokumentasi tidak ditemukan."
+            : "Belum ada dokumentasi foto."}
+        </div>`;
+
+      if (info) info.textContent = "Belum ada hasil dokumentasi.";
+      return;
+    }
+
+    if (info) {
+      info.textContent = keyword
+        ? `${data.length} dokumentasi ditemukan.`
+        : `Menampilkan ${data.length} dokumentasi terbaru.`;
+    }
+
+    const isPetugas = staff();
+
+    grid.innerHTML = data.map(item => {
+      const tanggal = item.created_at
+        ? new Date(item.created_at).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric"
+          })
+        : "";
+
+      return `
+        <div class="documentation-card">
+          <img
+            src="${esc(item.foto_url)}"
+            alt="Dokumentasi Agronomi"
+            loading="lazy"
+          >
+
+          <div class="documentation-card-body">
+            <p>${esc(item.keterangan || "Dokumentasi kegiatan Agronomi")}</p>
+            <small>${esc(tanggal)}</small>
+
+            
+          ${isPetugas ? `
+            <button
+              type="button"
+              class="documentation-delete-btn"
+              data-id="${Number(item.id)}"
+              data-foto-url="${esc(item.foto_url)}">
+              🗑️ Hapus
+            </button>
+          ` : ""}
+
+          </div>
+        </div>`;
+    }).join("");
+
+    
+    grid.querySelectorAll(".documentation-delete-btn").forEach(button => {
+      button.addEventListener("click", async () => {
+        const id = Number(button.dataset.id);
+        const fotoUrl = button.dataset.fotoUrl;
+
+        if (!Number.isFinite(id) || !fotoUrl) {
+          alert("Data foto tidak valid.");
+          return;
+        }
+
+        await deleteAgronomiDocumentation(id, fotoUrl);
+      });
+    });
+
+
+  } catch (error) {
+    console.error("Gagal memuat dokumentasi Agronomi:", error);
+
+    grid.innerHTML = `
+      <div class="documentation-empty">
+        Gagal memuat dokumentasi Agronomi.
+      </div>`;
+  }
+}
+
+
+async function deleteAgronomiDocumentation(id, fotoUrl) {
+  if (!qcSupabase) {
+    alert("Supabase belum tersedia.");
+    return;
+  }
+
+  if (!staff()) {
+    alert("Hanya Petugas yang dapat menghapus dokumentasi.");
+    return;
+  }
+
+  if (!confirm("Yakin ingin menghapus dokumentasi Agronomi ini?")) {
+    return;
+  }
+
+  try {
+    const marker =
+      "/storage/v1/object/public/qc-documentation/";
+
+    const markerIndex = fotoUrl.indexOf(marker);
+
+    if (markerIndex === -1) {
+      alert("Path foto tidak dapat ditemukan.");
+      return;
+    }
+
+    const filePath = decodeURIComponent(
+      fotoUrl.substring(markerIndex + marker.length)
+    );
+
+    const { error: storageError } = await qcSupabase.storage
+      .from("qc-documentation")
+      .remove([filePath]);
+
+    if (storageError) throw storageError;
+
+    const { error: dbError } = await qcSupabase
+      .from("agronomi_documentation")
+      .delete()
+      .eq("id", id);
+
+    if (dbError) throw dbError;
+
+    alert("Dokumentasi Agronomi berhasil dihapus.");
+
+    const searchInput = document.getElementById(
+      "agronomiDocumentationSearch"
+    );
+
+    await loadAgronomiDocumentation(searchInput?.value || "");
+
+  } catch (error) {
+    console.error("Gagal menghapus dokumentasi Agronomi:", error);
+    alert("Gagal menghapus dokumentasi: " + error.message);
+  }
+}
+
+
+async function uploadBuahDocumentation(file) {
+  if (!qcSupabase) {
+    alert("Supabase belum tersedia.");
+    return null;
+  }
+
+  if (!file) return null;
+
+  try {
+    const extension = file.name.split(".").pop();
+    const fileName = `buah_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(2, 8)}.${extension}`;
+    const filePath = `buah/${fileName}`;
+
+    const { error: uploadError } = await qcSupabase.storage
+      .from("qc-documentation")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error("Gagal upload foto Buah:", uploadError);
+      alert("Gagal upload foto: " + uploadError.message);
+      return null;
+    }
+
+    const { data } = qcSupabase.storage
+      .from("qc-documentation")
+      .getPublicUrl(filePath);
+
+    return data?.publicUrl || null;
+  } catch (error) {
+    console.error("Error upload dokumentasi Buah:", error);
+    alert("Terjadi kesalahan saat upload foto.");
+    return null;
+  }
+}
+
+
+async function loadBuahDocumentation(searchText = "") {
+  const grid = document.getElementById("buahDocumentationGrid");
+  const info = document.getElementById("buahDocumentationInfo");
+
+  if (!grid) return;
+
+  if (!qcSupabase) {
+    grid.innerHTML = `
+      <div class="documentation-empty">
+        Supabase belum tersedia.
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = `
+    <div class="documentation-empty">
+      Memuat dokumentasi...
+    </div>`;
+
+  try {
+    const keyword = String(searchText || "").trim();
+
+    let query = qcSupabase
+      .from("buah_documentation")
+      .select("id,foto_url,keterangan,created_at")
+      .order("created_at", { ascending: false });
+
+    if (keyword) {
+      query = query.ilike("keterangan", `%${keyword}%`);
+    } else {
+      query = query.limit(5);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      grid.innerHTML = `
+        <div class="documentation-empty">
+          ${keyword
+            ? "Dokumentasi tidak ditemukan."
+            : "Belum ada dokumentasi foto."}
+        </div>`;
+
+      if (info) info.textContent = "Belum ada hasil dokumentasi.";
+      return;
+    }
+
+    if (info) {
+      info.textContent = keyword
+        ? `${data.length} dokumentasi ditemukan.`
+        : `Menampilkan ${data.length} dokumentasi terbaru.`;
+    }
+
+    const isPetugas = staff();
+
+    grid.innerHTML = data.map(item => {
+      const tanggal = item.created_at
+        ? new Date(item.created_at).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric"
+          })
+        : "";
+
+      return `
+        <div class="documentation-card">
+          <img
+            src="${esc(item.foto_url)}"
+            alt="Dokumentasi Buah"
+            loading="lazy"
+          >
+
+          <div class="documentation-card-body">
+            <p>${esc(item.keterangan || "Dokumentasi kegiatan Buah")}</p>
+            <small>${esc(tanggal)}</small>
+
+            ${isPetugas ? `
+              <button
+                type="button"
+                class="documentation-delete-btn"
+                data-id="${Number(item.id)}"
+                data-foto-url="${esc(item.foto_url)}">
+                🗑️ Hapus
+              </button>
+            ` : ""}
+          </div>
+        </div>`;
+    }).join("");
+
+    grid.querySelectorAll(".documentation-delete-btn").forEach(button => {
+      button.addEventListener("click", async () => {
+        const id = Number(button.dataset.id);
+        const fotoUrl = button.dataset.fotoUrl;
+
+        if (!Number.isFinite(id) || !fotoUrl) {
+          alert("Data foto tidak valid.");
+          return;
+        }
+
+        await deleteBuahDocumentation(id, fotoUrl);
+      });
+    });
+
+  } catch (error) {
+    console.error("Gagal memuat dokumentasi Buah:", error);
+
+    grid.innerHTML = `
+      <div class="documentation-empty">
+        Gagal memuat dokumentasi Buah.
+      </div>`;
+  }
+}
+
+
+async function deleteBuahDocumentation(id, fotoUrl) {
+  if (!qcSupabase) {
+    alert("Supabase belum tersedia.");
+    return;
+  }
+
+  if (!staff()) {
+    alert("Hanya Petugas yang dapat menghapus dokumentasi.");
+    return;
+  }
+
+  if (!confirm("Yakin ingin menghapus dokumentasi Buah ini?")) {
+    return;
+  }
+
+  try {
+    const marker =
+      "/storage/v1/object/public/qc-documentation/";
+
+    const markerIndex = fotoUrl.indexOf(marker);
+
+    if (markerIndex === -1) {
+      alert("Path foto tidak dapat ditemukan.");
+      return;
+    }
+
+    const filePath = decodeURIComponent(
+      fotoUrl.substring(markerIndex + marker.length)
+    );
+
+    const { error: storageError } = await qcSupabase.storage
+      .from("qc-documentation")
+      .remove([filePath]);
+
+    if (storageError) throw storageError;
+
+    const { error: dbError } = await qcSupabase
+      .from("buah_documentation")
+      .delete()
+      .eq("id", id);
+
+    if (dbError) throw dbError;
+
+    alert("Dokumentasi Buah berhasil dihapus.");
+
+    const searchInput = document.getElementById(
+      "buahDocumentationSearch"
+    );
+
+    await loadBuahDocumentation(searchInput?.value || "");
+
+  } catch (error) {
+    console.error("Gagal menghapus dokumentasi Buah:", error);
+    alert("Gagal menghapus dokumentasi: " + error.message);
   }
 }
 
@@ -6339,7 +6890,7 @@ async function getAgronomiFromSupabase() {
 
     const { data, error } = await qcSupabase
       .from("agronomi_data")
-      .select("id,row_data,headers")
+      .select("id,row_data,headers,row_formats")
       .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
 
@@ -6385,18 +6936,20 @@ console.log(
 
 
   return allRows.map(row => ({
+  id: row.id,
 
-    id: row.id,
+  values: Array.isArray(row.row_data)
+    ? row.row_data
+    : [],
 
-    values: Array.isArray(row.row_data)
-      ? row.row_data
-      : [],
+  headers: Array.isArray(row.headers)
+    ? row.headers
+    : [],
 
-    headers: Array.isArray(row.headers)
-      ? row.headers
-      : []
-
-  }));
+  formats: Array.isArray(row.row_formats)
+    ? row.row_formats
+    : []
+}));
 
 }
 
@@ -6422,7 +6975,8 @@ async function importAgronomi(file) {
 
     const workbook = XLSX.read(arrayBuffer, {
       type: "array",
-      cellDates: true
+      cellDates: false,
+      cellNF: true
     });
 
     console.log("📚 Sheet Excel:", workbook.SheetNames);
@@ -6436,55 +6990,59 @@ async function importAgronomi(file) {
 
     const worksheet = workbook.Sheets[sheetName];
 
-    const rawData = XLSX.utils.sheet_to_json(worksheet, {
-      header: 1,
-      range: 3,
-      defval: "",
-      raw: true
-    });
+    
+const rawData = XLSX.utils.sheet_to_json(worksheet, {
+  header: 1,
+  range: 3,
+  defval: "",
+  raw: true
+});
 
-    console.log("📊 Total baris Excel:", rawData.length);
+const columnCount = 41;
 
-    /*
-      =====================================================
-      STRUKTUR FILE AGRONOMI BARU
+// Header Excel baris 4
+const headers = (rawData[0] || [])
+  .slice(0, columnCount)
+  .map(value => String(value ?? "").trim());
 
-      Excel row 4 = HEADER
-      Excel row 5 dst = DATA
-      =====================================================
-    */
 
-    if (rawData.length < 5) {
-      alert('Data pada sheet "Data Per week" tidak mencukupi.');
-      return;
+const dataRows = [];
+const dataFormats = [];
+
+rawData.slice(1).forEach((row, index) => {
+  const values = row.slice(0, columnCount);
+
+  const isEmpty = values.every(
+    value => String(value ?? "").trim() === ""
+  );
+
+  if (isEmpty) return;
+
+  const excelRowIndex = index + 4;
+
+  const formats = Array.from(
+    { length: columnCount },
+    (_, colIndex) => {
+      const address = XLSX.utils.encode_cell({
+        r: excelRowIndex,
+        c: colIndex
+      });
+
+      const cell = worksheet[address];
+      return cell?.z || "General";
     }
+  );
 
-    // ============================================
-// STRUKTUR EXCEL AGRONOMI
-// Mulai membaca dari Excel row 4
-// A:AO = 41 kolom
-// ============================================
+  // Simpan nilai numerik asli, termasuk tanggal Excel
+  dataRows.push(values);
+  dataFormats.push(formats);
+});
 
-    const headers = rawData[0]
-      .slice(0, 41)
-      .map(value =>
-        String(value ?? "").trim()
-      );
 
-    const dataRows = rawData
-      .slice(1)
-      .map(row =>
-        row.slice(0, 41)
-      )
-      .filter(row =>
-        row.some(value =>
-          String(value ?? "").trim() !== ""
-        )
-      );
+console.log("Jumlah header:", headers.length);
+console.log("Jumlah data:", dataRows.length);
+console.log("Jumlah format:", dataFormats.length);
 
-    console.log("🧾 Jumlah header:", headers.length);
-    console.log("🧾 HEADER AGRONOMI:", headers);
-    console.log("📊 Jumlah data Agronomi:", dataRows.length);
 
     if (!dataRows.length) {
       alert('Tidak ada data pada sheet "Data Per week".');
@@ -6557,9 +7115,10 @@ async function importAgronomi(file) {
       =====================================================
     */
 
-    const rowsToInsert = dataRows.map(row => ({
+    const rowsToInsert = dataRows.map((row, index) => ({
       row_data: row,
-      headers: headers
+      headers: headers,
+      row_formats: dataFormats[index]
     }));
 
     /*
@@ -6667,8 +7226,9 @@ function getQuarterFromMonth(monthValue) {
 
   if (!monthNumber) return null;
 
+  
   if (monthNumber <= 3) return "Q1";
-  if (monthNumber <= 6) return "Q2";
+  if (monthNumber <= 5) return "Q2";
   if (monthNumber <= 9) return "Q3";
   return "Q4";
 }
@@ -6746,6 +7306,15 @@ function buildAgronomiQuarterData(rows, year, age) {
     const values = Array.isArray(row.values)
       ? row.values
       : [];
+      if (row === rows[0]) {
+  console.table(
+    row.headers.map((header, index) => ({
+      index,
+      header,
+      value: values[index]
+    }))
+  );
+}
 
     const rowYear = String(values[5] ?? "").trim();
     const pg = String(values[9] ?? "").trim();
@@ -6777,9 +7346,20 @@ function buildAgronomiQuarterData(rows, year, age) {
       return;
     }
 
-    const getNumber = index => {
 
-      const value = Number(values[index]);
+    const getNumber = index => {
+      const rawValue = values[index];
+
+      // Sel kosong harus diabaikan, bukan dihitung sebagai 0
+      if (
+        rawValue === null ||
+        rawValue === undefined ||
+        String(rawValue).trim() === ""
+      ) {
+        return null;
+      }
+
+      const value = Number(rawValue);
 
       if (!Number.isFinite(value)) {
         return null;
@@ -6790,6 +7370,20 @@ function buildAgronomiQuarterData(rows, year, age) {
 
     const downGrade =
       getNumber(selected.columns.downGrade);
+      if (quarter === "Q1" && pg === "PG1") {
+  console.log("🔬 DETAIL Q1 PG1:", {
+    tahun: rowYear,
+    bulan: values[4],
+    minggu: values[3],
+    pg,
+    status,
+    umur,
+    downGrade: getNumber(selected.columns.downGrade),
+    underStandard: getNumber(selected.columns.underStandard),
+    standard: getNumber(selected.columns.standard),
+    satisfactory: getNumber(selected.columns.satisfactory)
+  });
+}
 
     const underStandard =
       getNumber(selected.columns.underStandard);
@@ -6800,6 +7394,21 @@ function buildAgronomiQuarterData(rows, year, age) {
     const satisfactory =
       getNumber(selected.columns.satisfactory);
 
+      if (
+  year === "2026" &&
+  age === "2PSFC" &&
+  quarter === "Q1" &&
+  pg === "PG1"
+) {
+  console.log("DATA YANG DIHITUNG:", {
+    tahun: rowYear,
+    bulan: values[4],
+    minggu: values[3],
+    status,
+    umur,
+    downGrade
+  });
+}
     // 0 tetap dimasukkan karena 0% adalah data valid
     if (downGrade !== null) {
       result[quarter][pg].downGrade.push(downGrade);
@@ -6860,220 +7469,235 @@ function buildAgronomiQuarterData(rows, year, age) {
     });
 
   });
+  
+  console.log("🔎 CEK Q1 PG1:", {
+    jumlahDownGrade: result.Q1.PG1.downGrade.length,
+    nilaiDownGrade: result.Q1.PG1.downGrade,
+    rataRataDownGrade: finalData.Q1.PG1.downGrade,
+
+    jumlahUnderStandard: result.Q1.PG1.underStandard.length,
+    nilaiUnderStandard: result.Q1.PG1.underStandard,
+    rataRataUnderStandard: finalData.Q1.PG1.underStandard
+  });
 
   console.log("📊 DATA QUARTAL AGRONOMI:", {
     tahun: year,
     umur: age,
     data: finalData
   });
+  console.log("🔎 PEMERIKSAAN RATA-RATA:", {
+  tahun: year,
+  umur: age,
+  q1Pg1: {
+    jumlah: result.Q1.PG1.downGrade.length,
+    total: result.Q1.PG1.downGrade.reduce(
+      (sum, value) => sum + value,
+      0
+    ),
+    rataRata: finalData.Q1.PG1.downGrade
+  }
+});
 
   return finalData;
 }
 
-function renderAgronomiCharts(rows) {
 
+function renderAgronomiCharts(rows) {
   const yearFilter = document.getElementById("agronomiYearFilter");
   const ageFilter = document.getElementById("agronomiAgeFilter");
+  const grid = document.getElementById("agronomiChartGrid");
 
-  const selectedYear = yearFilter?.value || "all";
-  const selectedAge = ageFilter?.value || "2PSFC";
+  if (!grid) return;
 
-  const quarterData = buildAgronomiQuarterData(
-    rows,
-    selectedYear,
-    selectedAge
-  );
+  rows = Array.isArray(rows) ? rows : [];
 
-  const labels = ["Q1", "Q2", "Q3", "Q4"];
-
-  const pgColors = [
-    "#176b87",
-    "#ed7135",
-    "#176b2c",
-    "#159bd3"
+  const ageOptions = [
+    { key: "2PSFC", label: "2PSFC" },
+    { key: "4PSFC", label: "4PSFC" },
+    { key: "4PSSC", label: "4PSSC" }
   ];
 
-  function getData(metric, pg) {
+  const metrics = [
+    { key: "downGrade", title: "Down Grade", subtitle: "≤ 13 CM" },
+    { key: "underStandard", title: "Under Standard", subtitle: "Sesuai kategori umur" },
+    { key: "standard", title: "Standard", subtitle: "Sesuai kategori umur" },
+    { key: "satisfactory", title: "Satisfactory", subtitle: "Sesuai kategori umur" }
+  ];
 
-    return labels.map(quarter => {
+  // Cari tahun terbaru yang tersedia pada data.
+  const years = rows
+    .map(row => String(row.values?.[5] ?? "").trim())
+    .filter(year => /^\d{4}$/.test(year))
+    .map(Number);
 
-      const value =
-        quarterData?.[quarter]?.[pg]?.[metric];
+  const latestYear = years.length ? String(Math.max(...years)) : "";
 
-      if (value === null || value === undefined) {
-        return null;
-      }
-
-      return Number((value * 100).toFixed(2));
-    });
-
+  // Tahun terbaru menjadi default saat filter belum dipilih.
+  if (yearFilter && !yearFilter.dataset.initialized) {
+    if (latestYear) yearFilter.value = latestYear;
+    yearFilter.dataset.initialized = "true";
   }
 
-function createChart(canvasId, oldChart, title, metric) {
-  const canvas = document.getElementById(canvasId);
+  const selectedYear = yearFilter?.value || latestYear;
+  const selectedAge = ageFilter?.value || "all";
 
-  if (!canvas) {
-    console.warn(`⚠️ Canvas tidak ditemukan: ${canvasId}`);
-    return null;
+  // "all" berarti ketiga kelompok umur.
+  const agesToShow = selectedAge === "all"
+    ? ageOptions
+    : ageOptions.filter(age => age.key === selectedAge);
+
+  // Hapus grafik lama agar tidak menumpuk.
+  grid.querySelectorAll("canvas").forEach(canvas => {
+    const chart = Chart.getChart(canvas);
+    if (chart) chart.destroy();
+  });
+
+  grid.innerHTML = "";
+
+  if (!selectedYear) {
+    grid.innerHTML = `
+      <p class="table-empty">
+        Belum ada data Agronomi yang memiliki informasi tahun.
+      </p>`;
+    return;
   }
 
-  if (oldChart) {
-    oldChart.destroy();
+  const yearRows = rows.filter(row =>
+    String(row.values?.[5] ?? "").trim() === selectedYear
+  );
+
+  if (!yearRows.length) {
+    grid.innerHTML = `
+      <p class="table-empty">
+        Belum ada data Agronomi untuk tahun ${selectedYear}.
+      </p>`;
+    return;
   }
 
-  // Plugin lokal untuk menampilkan angka di atas batang
-  const valueLabelsPlugin = {
-    id: "agronomiValueLabels",
+  const labels = ["Q1", "Q2", "Q3", "Q4"];
+  const pgColors = ["#176b87", "#ed7135", "#176b2c", "#159bd3"];
 
-    afterDatasetsDraw(chart) {
-      const { ctx } = chart;
+  let chartCount = 0;
 
-      ctx.save();
-      ctx.font = "bold 11px Arial";
-      ctx.fillStyle = "#46564d";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
+  agesToShow.forEach(age => {
+    const quarterData = buildAgronomiQuarterData(
+      yearRows,
+      selectedYear,
+      age.key
+    );
 
-      chart.data.datasets.forEach((dataset, datasetIndex) => {
-        const meta = chart.getDatasetMeta(datasetIndex);
+    metrics.forEach(metric => {
+      const hasData = ["Q1", "Q2", "Q3", "Q4"].some(quarter =>
+        ["PG1", "PG2", "PG3", "PG4"].some(pg => {
+          const value = quarterData?.[quarter]?.[pg]?.[metric.key];
+          return value !== null &&
+            value !== undefined &&
+            Number.isFinite(Number(value));
+        })
+      );
 
-        meta.data.forEach((bar, index) => {
-          const value = dataset.data[index];
+      if (!hasData) return;
 
-          if (
-            value === null ||
-            value === undefined ||
-            !Number.isFinite(Number(value)) ||
-            Number(value) === 0
-          ) {
-            return;
+      const card = document.createElement("div");
+      card.className = "agronomi-chart-card";
+
+      const heading = document.createElement("div");
+      heading.className = "chart-card-title";
+
+      const title = document.createElement("h3");
+      title.textContent = `${metric.title} — ${age.label}`;
+
+      const subtitle = document.createElement("span");
+      subtitle.textContent = metric.subtitle;
+
+      heading.append(title, subtitle);
+
+      const wrap = document.createElement("div");
+      wrap.className = "propping-chart-wrap";
+
+      const canvas = document.createElement("canvas");
+      canvas.id = `agronomi_${age.key}_${metric.key}`;
+
+      wrap.appendChild(canvas);
+      card.append(heading, wrap);
+      grid.appendChild(card);
+
+      const datasets = ["PG1", "PG2", "PG3", "PG4"].map((pg, index) => ({
+        label: pg,
+        data: labels.map(quarter => {
+          const value = quarterData?.[quarter]?.[pg]?.[metric.key];
+          return value === null || value === undefined
+            ? null
+            : Number((value * 100).toFixed(2));
+        }),
+        backgroundColor: pgColors[index]
+      }));
+
+      new Chart(canvas, {
+        type: "bar",
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 18 } },
+          
+        plugins: {
+          legend: { position: "bottom" },
+          title: {
+            display: true,
+            text: `${metric.title} — ${age.label} (${selectedYear})`
+          },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const value = context.raw;
+                return value == null
+                  ? `${context.dataset.label}: -`
+                  : `${context.dataset.label}: ${value}%`;
+              }
+            }
+          },
+          
+            datalabels: {
+              display: true,
+              anchor: "end",
+              align: "top",
+              formatter: value =>
+                value == null ? "" : `${Number(value).toFixed(1)}%`,
+              color: "#222",
+              font: {
+                weight: "bold",
+                size: 10
+              }
+            }
+
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            min: 0,
+            max: 100,
+            ticks: {
+              stepSize: 20,
+              callback: value => `${value}%`
+            }
           }
+        }
 
-          ctx.fillText(
-            `${Number(value.toFixed(1)).toString()}%`,
-            bar.x,
-            bar.y - 5
-          );
-        });
+        }
       });
 
-      ctx.restore();
-    }
-  };
-
-  return new Chart(canvas, {
-    type: "bar",
-
-    data: {
-      labels: labels,
-
-      datasets: [
-        {
-          label: "PG1",
-          data: getData(metric, "PG1"),
-          backgroundColor: pgColors[0]
-        },
-        {
-          label: "PG2",
-          data: getData(metric, "PG2"),
-          backgroundColor: pgColors[1]
-        },
-        {
-          label: "PG3",
-          data: getData(metric, "PG3"),
-          backgroundColor: pgColors[2]
-        },
-        {
-          label: "PG4",
-          data: getData(metric, "PG4"),
-          backgroundColor: pgColors[3]
-        }
-      ]
-    },
-
-    plugins: [valueLabelsPlugin],
-
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-
-      layout: {
-        padding: {
-          top: 18
-        }
-      },
-
-      plugins: {
-        legend: {
-          position: "bottom"
-        },
-
-        title: {
-          display: true,
-          text: title
-        },
-
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const value = context.raw;
-
-              if (value === null || value === undefined) {
-                return `${context.dataset.label}: -`;
-              }
-
-              return `${context.dataset.label}: ${value}%`;
-            }
-          }
-        }
-      },
-
-      scales: {
-        y: {
-          beginAtZero: true,
-          min: 0,
-          max: 100,
-
-          ticks: {
-            stepSize: 10,
-            callback: function(value) {
-              return `${value}%`;
-            }
-          }
-        }
-      }
-    }
+      chartCount++;
+    });
   });
-}
 
-  agronomiDownGradeChart = createChart(
-    "agronomiDownGradeChart",
-    agronomiDownGradeChart,
-    "Down Grade",
-    "downGrade"
-  );
-
-  agronomiUnderStandardChart = createChart(
-    "agronomiUnderStandardChart",
-    agronomiUnderStandardChart,
-    "Under Standard",
-    "underStandard"
-  );
-
-  agronomiStandardChart = createChart(
-    "agronomiStandardChart",
-    agronomiStandardChart,
-    "Standard",
-    "standard"
-  );
-
-  agronomiSatisfactoryChart = createChart(
-    "agronomiSatisfactoryChart",
-    agronomiSatisfactoryChart,
-    "Satisfactory",
-    "satisfactory"
-  );
-
+  if (chartCount === 0) {
+    grid.innerHTML = `
+      <p class="table-empty">
+        Belum ada data grafik untuk tahun ${selectedYear}
+        dan kelompok umur yang dipilih.
+      </p>`;
+  }
 }
 
 // =========================================================
@@ -7109,8 +7733,32 @@ function renderAgronomi(rows) {
   const selectedWeek =
     document.getElementById("agronomiWeekFilter")?.value || "all";
 
+    console.log("Contoh data Agronomi:", rows.slice(0, 3).map(row => ({
+  values: row.values,
+  headers: row.headers
+})));
+
+console.log("Filter dipilih:", {
+  year: selectedYear,
+  pg: selectedPG,
+  wilayah: selectedWilayah,
+  week: selectedWeek
+});
+
   const filteredRows = rows.filter(row => {
     const v = row.values || [];
+
+    if (
+  String(v[9] ?? "").trim() === selectedPG &&
+  String(v[7] ?? "").trim() === selectedWilayah
+) {
+  console.log("Data PG dan Wilayah cocok:", {
+    week: v[3],
+    year: v[5],
+    pg: v[9],
+    wilayah: v[7]
+  });
+}
 
     return (selectedYear === "all" || String(v[5] ?? "").trim() === selectedYear)
       && (selectedPG === "all" || String(v[9] ?? "").trim() === selectedPG)
@@ -7144,11 +7792,31 @@ function renderAgronomi(rows) {
   filteredRows.forEach(row => {
     const tr = document.createElement("tr");
 
-    (row.values || []).forEach(value => {
-      const td = document.createElement("td");
-      td.textContent = value ?? "";
-      tr.appendChild(td);
-    });
+    
+(row.values || []).forEach((value, index) => {
+  const td = document.createElement("td");
+  const format = row.formats?.[index] || "General";
+
+  
+if (value === null || value === undefined || value === "") {
+  td.textContent = "";
+} else if (
+  typeof value === "number" &&
+  format !== "General"
+) {
+  try {
+    td.textContent = XLSX.SSF.format(format, value);
+  } catch (error) {
+    td.textContent = value;
+  }
+} else {
+  td.textContent = value;
+}
+
+
+  tr.appendChild(td);
+});
+
 
     const actionTd = document.createElement("td");
     actionTd.className = "table-actions";
@@ -7320,224 +7988,100 @@ function showAgronomiLoading() {
   `;
 }
 
+
 function updateAgronomiTableFilters(rows) {
+  const yearFilter = document.getElementById("agronomiYearFilter");
   const pgFilter = document.getElementById("agronomiPGFilter");
   const wilayahFilter = document.getElementById("agronomiWilayahFilter");
   const weekFilter = document.getElementById("agronomiWeekFilter");
 
   if (!pgFilter || !wilayahFilter || !weekFilter) return;
 
+  const selectedYear = yearFilter?.value || "all";
   const selectedPG = pgFilter.value || "all";
   const selectedWilayah = wilayahFilter.value || "all";
   const selectedWeek = weekFilter.value || "all";
 
-  // =====================================================
-// ISI DROPDOWN PG
-// =====================================================
+  // 1. Data mengikuti Tahun
+  const rowsByYear = rows.filter(row => {
+    const v = row.values || [];
+    return selectedYear === "all" ||
+      String(v[5] ?? "").trim() === selectedYear;
+  });
 
-const pgSet = new Set();
+  // 2. Dropdown PG mengikuti Tahun
+  const pgSet = new Set(
+    rowsByYear
+      .map(row => String(row.values?.[9] ?? "").trim())
+      .filter(Boolean)
+  );
 
-rows.forEach(row => {
-  const values = Array.isArray(row.values) ? row.values : [];
-  const pg = String(values[9] ?? "").trim();
+  pgFilter.innerHTML = '<option value="all">Semua PG</option>';
 
-  if (pg) {
-    pgSet.add(pg);
-  }
-});
+  [...pgSet].sort().forEach(pg => {
+    pgFilter.add(new Option(pg, pg));
+  });
 
-const pgMasihAda = pgSet.has(selectedPG);
+  pgFilter.value =
+    selectedPG === "all" || pgSet.has(selectedPG)
+      ? selectedPG
+      : "all";
 
-pgFilter.innerHTML = `
-  <option value="all">Semua PG</option>
-`;
+  // 3. Data mengikuti Tahun + PG
+  const rowsByPG = rowsByYear.filter(row => {
+    const pg = String(row.values?.[9] ?? "").trim();
+    return pgFilter.value === "all" || pg === pgFilter.value;
+  });
 
-[...pgSet]
-  .sort((a, b) => {
-    const numA = parseInt(a.replace(/\D/g, ""));
-    const numB = parseInt(b.replace(/\D/g, ""));
+  // 4. Dropdown Wilayah mengikuti Tahun + PG
+  const wilayahSet = new Set(
+    rowsByPG
+      .map(row => String(row.values?.[7] ?? "").trim())
+      .filter(Boolean)
+  );
 
-    if (!isNaN(numA) && !isNaN(numB)) {
-      return numA - numB;
-    }
+  wilayahFilter.innerHTML =
+    '<option value="all">Semua Wilayah</option>';
 
+  [...wilayahSet].sort().forEach(wilayah => {
+    wilayahFilter.add(new Option(wilayah, wilayah));
+  });
+
+  wilayahFilter.value =
+    selectedWilayah === "all" || wilayahSet.has(selectedWilayah)
+      ? selectedWilayah
+      : "all";
+
+  // 5. Data mengikuti Tahun + PG + Wilayah
+  const rowsByWilayah = rowsByPG.filter(row => {
+    const wilayah = String(row.values?.[7] ?? "").trim();
+    return wilayahFilter.value === "all" ||
+      wilayah === wilayahFilter.value;
+  });
+
+  // 6. Dropdown Week mengikuti Tahun + PG + Wilayah
+  const weekSet = new Set(
+    rowsByWilayah
+      .map(row => String(row.values?.[3] ?? "").trim())
+      .filter(Boolean)
+  );
+
+  weekFilter.innerHTML = '<option value="all">Semua Week</option>';
+
+  [...weekSet].sort((a, b) => {
+    const numA = parseInt(a);
+    const numB = parseInt(b);
+
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
     return a.localeCompare(b);
-  })
-  .forEach(pg => {
-    const option = document.createElement("option");
-
-    option.value = pg;
-    option.textContent = pg;
-
-    pgFilter.appendChild(option);
+  }).forEach(week => {
+    weekFilter.add(new Option(week, week));
   });
 
-// Kembalikan pilihan PG sebelumnya
-if (selectedPG !== "all" && pgMasihAda) {
-  pgFilter.value = selectedPG;
-}
-  /*
-   * =====================================================
-   * 1. FILTER DATA BERDASARKAN PG
-   * =====================================================
-   */
-
-  const rowsByPG = rows.filter(row => {
-    const values = Array.isArray(row.values) ? row.values : [];
-    const pg = String(values[9] ?? "").trim();
-
-    return selectedPG === "all" || pg === selectedPG;
-  });
-
-
-  /*
-   * =====================================================
-   * 2. WILAYAH MENGIKUTI PG
-   * =====================================================
-   */
-
-  const wilayahSet = new Set();
-
-  rowsByPG.forEach(row => {
-    const values = Array.isArray(row.values) ? row.values : [];
-    const wilayah = String(values[7] ?? "").trim();
-
-    if (wilayah) {
-      wilayahSet.add(wilayah);
-    }
-  });
-
-  /*
-   * Kalau wilayah yang sebelumnya dipilih
-   * sudah tidak tersedia setelah PG berubah,
-   * kembalikan ke Semua Wilayah.
-   */
-
-  const wilayahMasihAda = wilayahSet.has(selectedWilayah);
-
-  if (
-    selectedWilayah !== "all" &&
-    !wilayahMasihAda
-  ) {
-    wilayahFilter.value = "all";
-  }
-
-  wilayahFilter.innerHTML = `
-    <option value="all">Semua Wilayah</option>
-  `;
-
-  [...wilayahSet]
-    .sort()
-    .forEach(wilayah => {
-      const option = document.createElement("option");
-
-      option.value = wilayah;
-      option.textContent = wilayah;
-
-      wilayahFilter.appendChild(option);
-    });
-
-  /*
-   * Kembalikan pilihan wilayah sebelumnya
-   * kalau masih tersedia.
-   */
-
-  if (selectedWilayah !== "all" && wilayahMasihAda) {
-    wilayahFilter.value = selectedWilayah;
-  }
-
-
-  /*
-   * =====================================================
-   * 3. FILTER DATA BERDASARKAN PG + WILAYAH
-   * =====================================================
-   */
-
-  const currentWilayah = wilayahFilter.value || "all";
-
-  const rowsByPGWilayah = rowsByPG.filter(row => {
-    const values = Array.isArray(row.values) ? row.values : [];
-    const wilayah = String(values[7] ?? "").trim();
-
-    return (
-      currentWilayah === "all" ||
-      wilayah === currentWilayah
-    );
-  });
-
-
-  /*
-   * =====================================================
-   * 4. WEEK MENGIKUTI PG + WILAYAH
-   * =====================================================
-   */
-
-  const weekSet = new Set();
-
-  rowsByPGWilayah.forEach(row => {
-    const values = Array.isArray(row.values) ? row.values : [];
-    const week = String(values[3] ?? "").trim();
-
-    if (week) {
-      weekSet.add(week);
-    }
-  });
-
-  /*
-   * Kalau week yang sebelumnya dipilih
-   * sudah tidak tersedia setelah PG/Wilayah berubah,
-   * kembalikan ke Semua Week.
-   */
-
-  const weekMasihAda = weekSet.has(selectedWeek);
-
-  if (
-    selectedWeek !== "all" &&
-    !weekMasihAda
-  ) {
-    weekFilter.value = "all";
-  }
-
-  weekFilter.innerHTML = `
-    <option value="all">Semua Week</option>
-  `;
-
-  [...weekSet]
-    .sort((a, b) => {
-      const numA = parseInt(a);
-      const numB = parseInt(b);
-
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB;
-      }
-
-      return String(a).localeCompare(String(b));
-    })
-    .forEach(week => {
-      const option = document.createElement("option");
-
-      option.value = week;
-      option.textContent = week;
-
-      weekFilter.appendChild(option);
-    });
-
-  /*
-   * Kembalikan pilihan week sebelumnya
-   * kalau masih tersedia.
-   */
-
-  if (selectedWeek !== "all" && weekMasihAda) {
-    weekFilter.value = selectedWeek;
-  }
-
-  console.log("🔎 Filter Agronomi cascading:", {
-    PG: pgFilter.value,
-    Wilayah: wilayahFilter.value,
-    Week: weekFilter.value,
-    jumlahWilayah: wilayahSet.size,
-    jumlahWeek: weekSet.size
-  });
+  weekFilter.value =
+    selectedWeek === "all" || weekSet.has(selectedWeek)
+      ? selectedWeek
+      : "all";
 }
 
 let agronomiDownGradeChart = null;
@@ -7648,21 +8192,18 @@ async function setupAgronomi() {
     );
 
 
-  yearFilter?.addEventListener(
-    "change",
-    () => {
+  
+  yearFilter?.addEventListener("change", () => {
+    console.log("📅 Tahun Agronomi:", yearFilter.value);
 
-      console.log(
-        "📅 Tahun Agronomi:",
-        yearFilter.value
-      );
+    // Perbarui pilihan filter tabel berdasarkan tahun
+    updateAgronomiTableFilters(rows);
 
+    // Tampilkan tabel dan grafik sesuai tahun terpilih
+    renderAgronomi(rows);
+    renderAgronomiCharts(rows);
+  });
 
-      renderAgronomi(rows);
-      renderAgronomiCharts(rows);
-
-    }
-  );
 
 
   ageFilter?.addEventListener("change", () => {
@@ -7687,7 +8228,7 @@ async function setupAgronomi() {
 
 
       if (ageFilter) {
-        ageFilter.value = "2PSFC";
+        ageFilter.value = "all";
       }
 
 
@@ -7733,4 +8274,222 @@ async function setupAgronomi() {
     renderAgronomi(rows);
   });
 
+  // =====================================================
+  // DOKUMENTASI AGRONOMI
+  // =====================================================
+
+  const documentationUploadBtn =
+    document.getElementById("agronomiDocumentationUploadBtn");
+
+  const documentationInput =
+    document.getElementById("agronomiDocumentationInput");
+
+  const documentationSearch =
+    document.getElementById("agronomiDocumentationSearch");
+
+  // Tampilkan tombol hanya untuk Petugas
+  if (documentationUploadBtn) {
+    documentationUploadBtn.style.display =
+      localStorage.getItem(LOGIN_KEY) === "true"
+        ? ""
+        : "none";
+  }
+
+  // Klik tombol Upload Foto
+  documentationUploadBtn?.addEventListener("click", () => {
+    if (!staff()) {
+      alert("Silakan login sebagai Petugas terlebih dahulu.");
+      return;
+    }
+
+    documentationInput?.click();
+  });
+
+  // Proses file yang dipilih
+  documentationInput?.addEventListener("change", async (event) => {
+    const files = Array.from(event.target.files || []);
+
+    if (files.length === 0) return;
+
+    if (!staff()) {
+      alert("Silakan login sebagai Petugas terlebih dahulu.");
+      documentationInput.value = "";
+      return;
+    }
+
+    const keterangan = prompt(
+      "Masukkan keterangan untuk foto dokumentasi Agronomi:"
+    );
+
+    if (keterangan === null || !keterangan.trim()) {
+      alert("Upload dibatalkan. Keterangan foto wajib diisi.");
+      documentationInput.value = "";
+      return;
+    }
+
+    let berhasil = 0;
+
+    for (const file of files) {
+      try {
+        const fotoUrl = await uploadAgronomiDocumentation(file);
+
+        if (!fotoUrl) continue;
+
+        const { error } = await qcSupabase
+          .from("agronomi_documentation")
+          .insert({
+            foto_url: fotoUrl,
+            keterangan: keterangan.trim()
+          });
+
+        if (error) {
+          console.error("Gagal menyimpan data foto:", error);
+          alert("Foto terunggah, tetapi data gagal disimpan: " + error.message);
+          continue;
+        }
+
+        berhasil++;
+      } catch (error) {
+        console.error("Gagal upload dokumentasi Agronomi:", error);
+      }
+    }
+
+    documentationInput.value = "";
+
+    if (berhasil > 0) {
+      alert(`${berhasil} foto dokumentasi Agronomi berhasil disimpan.`);
+    } else {
+      alert("Belum ada foto yang berhasil disimpan.");
+    }
+
+    await loadAgronomiDocumentation(
+      documentationSearch?.value || ""
+    );
+  });
+
+  // Pencarian dokumentasi
+  documentationSearch?.addEventListener("input", () => {
+    loadAgronomiDocumentation(documentationSearch.value);
+  });
+
+  // Muat galeri saat halaman dibuka
+  await loadAgronomiDocumentation(
+    documentationSearch?.value || ""
+  );
+
 }
+
+
+/* =========================================
+   PREVIEW FOTO DOKUMENTASI
+   Berlaku untuk Bibit dan Propping
+========================================= */
+
+(function initDocumentationPhotoPreview() {
+  // Hindari memasang event listener berulang
+  if (window.documentationPreviewInitialized) return;
+  window.documentationPreviewInitialized = true;
+
+  // Buat modal preview satu kali
+  const modal = document.createElement("div");
+
+  modal.id = "documentationPhotoPreview";
+
+  modal.style.cssText = `
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(0, 0, 0, 0.88);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+  `;
+
+  modal.innerHTML = `
+    <button
+      type="button"
+      id="documentationPreviewClose"
+      aria-label="Tutup foto"
+      style="
+        position:absolute;
+        top:15px;
+        right:20px;
+        width:44px;
+        height:44px;
+        border:0;
+        border-radius:50%;
+        background:white;
+        color:#173f2a;
+        font-size:30px;
+        cursor:pointer;
+      "
+    >×</button>
+
+    <img
+      id="documentationPreviewImage"
+      alt="Foto dokumentasi"
+      style="
+        display:block;
+        max-width:95%;
+        max-height:85vh;
+        object-fit:contain;
+        border-radius:8px;
+        box-shadow:0 8px 30px rgba(0,0,0,.4);
+      "
+    >
+  `;
+
+  document.body.appendChild(modal);
+
+  const previewImage = modal.querySelector(
+    "#documentationPreviewImage"
+  );
+
+  function closePreview() {
+    modal.style.display = "none";
+    previewImage.removeAttribute("src");
+  }
+
+  // Klik foto di galeri Bibit atau Propping
+  document.addEventListener("click", function (event) {
+    const image = event.target.closest(
+      "#bibitDocumentationGrid img, " +
+      "#proppingDocumentationGrid img"
+    );
+
+    if (!image) return;
+
+    if (!image.src) return;
+
+    event.preventDefault();
+
+    previewImage.src = image.src;
+    previewImage.alt = image.alt || "Foto dokumentasi";
+
+    modal.style.display = "flex";
+  });
+
+  // Tombol X
+  modal.querySelector(
+    "#documentationPreviewClose"
+  ).addEventListener("click", closePreview);
+
+  // Klik area gelap di luar foto
+  modal.addEventListener("click", function (event) {
+    if (event.target === modal) {
+      closePreview();
+    }
+  });
+
+  // Tombol Escape pada keyboard
+  document.addEventListener("keydown", function (event) {
+    if (
+      event.key === "Escape" &&
+      modal.style.display === "flex"
+    ) {
+      closePreview();
+    }
+  });
+})();
