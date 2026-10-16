@@ -356,12 +356,12 @@ function renderGeneric() {
   body.innerHTML = d.length ? d.map(r => {
     const originalIndex = data().indexOf(r);
     return `<tr>
-      <td>${esc(r[0])}</td>
-      <td>${esc(r[1])}</td>
-      <td>${esc(r[2])}</td>
-      <td>${esc(r[3])}</td>
-      <td>${esc(r[4])}</td>
-      <td>${esc(r[5])}</td>
+      <td>${esc(v[0])}</td>
+      <td>${esc(v[1])}</td>
+      <td>${esc(v[2])}</td>
+      <td>${esc(v[3])}</td>
+      <td>${esc(v[4])}</td>
+      <td>${esc(v[5])}</td>
       <td><span class="status ${statusClass(r[6])}">${esc(r[6])}</span></td>
       ${s ? `<td><div class="actions">
         <button class="icon-btn edit-btn" data-edit="${originalIndex}">✏️ Edit</button>
@@ -480,6 +480,1592 @@ function importGeneric(file) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+
+
+/* =========================================
+   BUD INJECTION (BI) - SUPABASE
+   Tabel: bud_injection_data
+========================================= */
+
+const BI_TABLE = "bud_injection_data";
+const BI_HEADERS_KEY = "qcBananaBIHeaders";
+
+let biRows = [];
+let biHeaders = [];
+
+// =============================================
+// AMBIL DATA BUD INJECTION DARI SUPABASE
+// =============================================
+
+async function loadBIFromSupabase() {
+  if (!qcSupabase) {
+    console.error("Supabase belum tersedia.");
+    return [];
+  }
+
+  const allRows = [];
+  const pageSize = 1000;
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await qcSupabase
+      .from(BI_TABLE)
+      .select("id,row_data,headers")
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error("Gagal mengambil data BI:", error);
+      throw error;
+    }
+
+    allRows.push(...(data || []));
+
+    console.log(
+      `📥 Mengambil data BI ${from + 1}–${from + (data?.length || 0)}`
+    );
+
+    if (!data || data.length < pageSize) break;
+
+    from += pageSize;
+  }
+
+  biRows = allRows.map(row => ({
+    id: row.id,
+    values: Array.isArray(row.row_data) ? row.row_data : []
+  }));
+
+  const savedHeaders = allRows.find(
+    row => Array.isArray(row.headers) && row.headers.length
+  )?.headers;
+
+  biHeaders = savedHeaders || [];
+
+  console.log("📊 TOTAL DATA BI DARI SUPABASE:", biRows.length);
+
+  renderBI();
+  renderBILocationRejectCharts();
+
+  return biRows;
+}
+
+// Render tabel BI; filter Tahun hanya berlaku untuk tabel
+
+function renderBI() {
+  const body = document.getElementById("dataTableBody");
+  if (!body || pageKey() !== "bud") return;
+
+  const head = document.getElementById("biTableHead")
+    || body.closest("table")?.querySelector("thead");
+
+  const getValue = id =>
+    document.getElementById(id)?.value || "all";
+
+  const selectedYear = getValue("yearFilter");
+  const selectedPG = getValue("biPGFilter");
+  const selectedRegion = getValue("regionFilter");
+  const selectedLocation = getValue("biLokasiFilter");
+  const selectedWeek = getValue("biWeekFilter");
+  const selectedStandard = getValue("biStandardFilter");
+
+  const headers = Array.isArray(biHeaders) ? biHeaders : [];
+  const rows = Array.isArray(biRows) ? biRows : [];
+  const isPetugas = staff();
+  updateBICascadingFilters(rows);
+
+  // Indeks kolom mengikuti Rekap Data BI.
+  const filtered = rows.filter(row => {
+    const v = row.values || [];
+
+    const yearMatch =
+      selectedYear === "all" ||
+      String(v[3] ?? "").trim() === selectedYear;
+
+    const pgMatch =
+      selectedPG === "all" ||
+      String(v[6] ?? "").trim() === selectedPG;
+
+    const regionMatch =
+      selectedRegion === "all" ||
+      String(v[5] ?? "").trim() === selectedRegion;
+
+    const locationMatch =
+      selectedLocation === "all" ||
+      String(v[7] ?? "").trim() === selectedLocation;
+
+    const weekMatch =
+      selectedWeek === "all" ||
+      String(v[1] ?? "").trim() === selectedWeek;
+
+    // Standar dibaca langsung dari isi kolom Injection BI <95%.
+const standardText = String(v[19] ?? "").trim();
+
+const standardMatch =
+  selectedStandard === "all" ||
+  standardText === selectedStandard;
+    return yearMatch && pgMatch && regionMatch &&
+      locationMatch && weekMatch && standardMatch;
+  });
+
+
+  if (head) {
+    head.innerHTML = `<tr>${
+      headers.map(h => `<th>${esc(String(h ?? ""))}</th>`).join("")
+    }${isPetugas ? "<th>Aksi</th>" : ""}</tr>`;
+  }
+
+  const count = document.getElementById("recordCount");
+  if (count) count.textContent = filtered.length;
+
+  if (!headers.length || !filtered.length) {
+    body.innerHTML = `
+      <tr><td colspan="${Math.max(1, headers.length + (isPetugas ? 1 : 0))}"
+      style="text-align:center;padding:24px">
+      ${!headers.length
+        ? "Header BI belum tersedia. Silakan unggah Excel."
+        : "Tidak ada data sesuai filter yang dipilih."}
+      </td></tr>`;
+    return;
+  }
+
+  body.innerHTML = filtered.map(row => {
+    const values = row.values || [];
+    const percentHeaders = [
+  "Terinject",
+  "Miss Out",
+  "Tepat",
+  "Mengenai Buah",
+  "Terlalu Ujung",
+  "Early",
+  "On Time",
+  "Late",
+  "Kualitas BI",
+  "Injection BI <95%"
+];
+
+const cells = headers.map((header, i) => {
+  const value = values[i] ?? "";
+  const headerName = String(header ?? "").trim().toLowerCase();
+
+  if (headerName === "tanggal") {
+    return `<td>${esc(formatBIDate(value))}</td>`;
+  }
+
+  const isPercent = percentHeaders.some(name =>
+    String(header ?? "").trim().toLowerCase() ===
+    name.toLowerCase()
+  );
+
+  const displayValue = isPercent
+    ? formatBIPercent(value)
+    : value;
+
+  return `<td>${esc(String(displayValue))}</td>`;
+}).join("");
+
+    const actions = isPetugas ? `
+      <td style="white-space:nowrap">
+        <button type="button" onclick="editBIRow(${Number(row.id)})">✏️ Edit</button>
+        <button type="button" onclick="deleteBIRow(${Number(row.id)})">🗑️ Hapus</button>
+      </td>` : "";
+
+    return `<tr>${cells}${actions}</tr>`;
+  }).join("");
+}
+
+function formatBIDate(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  // Tanggal Excel berupa angka serial, misalnya 46213
+  const text = String(value).trim();
+  const num = Number(text);
+
+  if (
+    Number.isFinite(num) &&
+    /^\d+(\.\d+)?$/.test(text) &&
+    num >= 1 &&
+    num < 100000
+  ) {
+    const date = new Date(
+      Date.UTC(1899, 11, 30) + Math.floor(num) * 86400000
+    );
+
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const year = date.getUTCFullYear();
+
+    return `${day}/${month}/${year}`;
+  }
+
+  return text;
+}
+
+function updateBICascadingFilters(rows) {
+  const yearSelect = document.getElementById("yearFilter");
+  const pgSelect = document.getElementById("biPGFilter");
+  const wilayahSelect = document.getElementById("regionFilter");
+  const lokasiSelect = document.getElementById("biLokasiFilter");
+  const weekSelect = document.getElementById("biWeekFilter");
+  const standardSelect = document.getElementById("biStandardFilter");
+
+  if (!pgSelect || !wilayahSelect || !lokasiSelect ||
+      !weekSelect || !standardSelect) return;
+
+  const selectedYear = yearSelect?.value || "all";
+
+  const oldPG = pgSelect.value || "all";
+  const oldWilayah = wilayahSelect.value || "all";
+  const oldLokasi = lokasiSelect.value || "all";
+  const oldWeek = weekSelect.value || "all";
+  const oldStandard = standardSelect.value || "all";
+
+  const value = (row, index) =>
+    String(row?.values?.[index] ?? "").trim();
+
+  const sortValues = values => values.sort((a, b) =>
+    /^\d+$/.test(a) && /^\d+$/.test(b)
+      ? Number(a) - Number(b)
+      : a.localeCompare(b, undefined, {
+          numeric: true,
+          sensitivity: "base"
+        })
+  );
+
+  function fillSelect(select, label, values, previous) {
+    const unique = sortValues([
+      ...new Set(values.filter(Boolean))
+    ]);
+
+    select.innerHTML =
+      `<option value="all">${label}</option>` +
+      unique.map(item =>
+        `<option value="${esc(item)}">${esc(item)}</option>`
+      ).join("");
+
+    select.value = unique.includes(previous) ? previous : "all";
+    return select.value;
+  }
+
+  // 1. Tahun
+  const yearRows = rows.filter(row =>
+    selectedYear === "all" || value(row, 3) === selectedYear
+  );
+
+  // 2. PG mengikuti Tahun
+  const currentPG = fillSelect(
+    pgSelect, "Semua PG",
+    yearRows.map(row => value(row, 6)), oldPG
+  );
+
+  const pgRows = yearRows.filter(row =>
+    currentPG === "all" || value(row, 6) === currentPG
+  );
+
+  // 3. Wilayah mengikuti PG
+  const currentWilayah = fillSelect(
+    wilayahSelect, "Semua Wilayah",
+    pgRows.map(row => value(row, 5)), oldWilayah
+  );
+
+  const wilayahRows = pgRows.filter(row =>
+    currentWilayah === "all" || value(row, 5) === currentWilayah
+  );
+
+  // 4. Lokasi mengikuti Wilayah
+  const currentLokasi = fillSelect(
+    lokasiSelect, "Semua Lokasi",
+    wilayahRows.map(row => value(row, 7)), oldLokasi
+  );
+
+  const lokasiRows = wilayahRows.filter(row =>
+    currentLokasi === "all" || value(row, 7) === currentLokasi
+  );
+
+  // 5. Week mengikuti Lokasi
+  const currentWeek = fillSelect(
+    weekSelect, "Semua Week",
+    lokasiRows.map(row => value(row, 1)), oldWeek
+  );
+
+  const weekRows = lokasiRows.filter(row =>
+    currentWeek === "all" || value(row, 1) === currentWeek
+  );
+
+  // 6. Standar mengikuti Week
+  // Kolom 18 = Kualitas BI, sesuai struktur header BI sebelumnya.
+  const currentStandard = fillSelect(
+    standardSelect, "Semua Standar",
+    weekRows.map(row => value(row, 19)), oldStandard
+  );
+
+  console.log("Filter BI:", {
+    tahun: selectedYear,
+    pg: currentPG,
+    wilayah: currentWilayah,
+    lokasi: currentLokasi,
+    week: currentWeek,
+    standar: currentStandard
+  });
+}
+
+function formatBIPercent(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  const text = String(value).trim();
+
+  if (text.endsWith("%")) {
+    const n = Number(text.slice(0, -1).replace(",", "."));
+
+    return Number.isFinite(n)
+      ? `${Math.round(n)}%`
+      : text;
+  }
+
+  const n = typeof value === "number"
+    ? value
+    : Number(text.replace(",", "."));
+
+  if (!Number.isFinite(n)) return text;
+
+  const percent = n >= 0 && n <= 1 ? n * 100 : n;
+
+  return `${Math.round(percent)}%`;
+}
+
+let biCharts = {};
+
+function renderBIGraphs() {
+  if (pageKey() !== "bud") return;
+
+  const rows = Array.isArray(biRows) ? biRows : [];
+  const year = document.getElementById("yearFilter")?.value || "all";
+  const mode = document.getElementById("biModeFilter")?.value || "all";
+
+  const yearRows = rows.filter(row => {
+    const v = row.values || [];
+    return year === "all" || String(v[3] ?? "").trim() === year;
+  });
+
+  // Urutkan Week berdasarkan nomor minggu, bukan urutan teks.
+  function weekNumber(value) {
+    const match = String(value ?? "").match(/\d+/);
+    return match ? Number(match[0]) : 999;
+  }
+
+  const weeks = [...new Set(yearRows.map(row =>
+    String(row.values?.[1] ?? "").trim()
+  ).filter(Boolean))]
+    .sort((a, b) => weekNumber(a) - weekNumber(b));
+
+  const lastWeeks = weeks.slice(-5);
+  const chartRows = yearRows.filter(row =>
+    lastWeeks.includes(String(row.values?.[1] ?? "").trim())
+  );
+  console.log("BI chart diagnostic:", {
+  selectedYear: year,
+  selectedMode: mode,
+  lastWeeks,
+  chartRowsByPG: ["PG1", "PG2", "PG3", "PG4"].map(pg => ({
+    pg,
+    count: chartRows.filter(row =>
+      String(row.values?.[6] ?? "").trim() === pg
+    ).length
+  }))
+});
+
+
+ const chartArea = document.getElementById("biChartArea");
+const empty = document.getElementById("biChartEmpty");
+
+if (!yearRows.length || !chartRows.length) {
+  Object.keys(biCharts).forEach(key => {
+    if (biCharts[key]) {
+      biCharts[key].destroy();
+      delete biCharts[key];
+    }
+  });
+
+  if (chartArea) {
+    chartArea.classList.add("bi-chart-area-hidden");
+  }
+
+  if (empty) {
+    empty.style.display = "flex";
+  }
+
+  return;
+}
+
+if (chartArea) {
+  chartArea.classList.remove("bi-chart-area-hidden");
+}
+
+if (empty) {
+  empty.style.display = "none";
+}
+
+  const info = document.getElementById("biChartFilterInfo");
+  if (info) {
+    info.textContent =
+      `${year === "all" ? "Semua Tahun" : year} • ` +
+      `${mode === "all" ? "Semua" : mode.toUpperCase()}`;
+  }
+
+  const cards = {
+    pgInjected: "biCardPGInjected",
+    wilayahInjected: "biCardWilayahInjected",
+    pgTiming: "biCardPGTiming",
+    wilayahTiming: "biCardWilayahTiming"
+  };
+
+  Object.entries(cards).forEach(([key, id]) => {
+    const card = document.getElementById(id);
+    if (!card) return;
+
+    card.style.display =
+      mode === "all" ||
+      (mode === "pg" && key.startsWith("pg")) ||
+      (mode === "wilayah" && key.startsWith("wilayah"))
+        ? ""
+        : "none";
+  });
+
+  const colors = [
+    "#FF6384", // PG1 / Early
+    "#FF9F40", // PG2 / On Time
+    "#FFCD56", // PG3 / Late
+    "#4BC0C0", // PG4
+    "#9966FF",
+    "#A5A5A5",
+    "#36A2EB"
+  ];
+
+  function toPercent(value) {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+
+    // 0.95 berarti 95%; 95 tetap 95%.
+    return n >= 0 && n <= 1 ? n * 100 : n;
+  }
+
+  function average(values) {
+    const valid = values.filter(Number.isFinite);
+    if (!valid.length) return null;
+    return valid.reduce((sum, n) => sum + n, 0) / valid.length;
+  }
+
+  function drawChart(canvasId, chartKey, labels, datasets, title) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || typeof Chart === "undefined") return;
+
+    if (biCharts[chartKey]) {
+      biCharts[chartKey].destroy();
+    }
+
+    biCharts[chartKey] = new Chart(canvas, {
+      type: "bar",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        datasets: {
+          bar: {
+            barPercentage: 0.55,
+            categoryPercentage: 0.65
+          }
+        },
+        scales: {
+          y: {
+            min: 0,
+            max: 120,
+            beginAtZero: true,
+            bounds: "ticks",
+            afterBuildTicks: (axis) => {
+              axis.ticks = [0, 20, 40, 60, 80, 100, 120]
+                .map(value => ({ value }));
+            },
+            ticks: {
+              stepSize: 20,
+              autoSkip: false,
+              callback: (value) => `${value}%`
+            },
+            title: {
+              display: true,
+              text: "Persentase"
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: "Periode"
+            }
+          }
+        },
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const value = context.raw;
+                return value == null
+                  ? `${context.dataset.label}: -`
+                  : `${context.dataset.label}: ${Number(value).toFixed(1)}%`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function groupNames(groupIndex) {
+    return [...new Set(chartRows.map(row =>
+      String(row.values?.[groupIndex] ?? "").trim()
+    ).filter(Boolean))].sort();
+  }
+
+  // TerInject pada data Rekap Data BI: indeks 10.
+  // Jika nilainya sudah berupa rasio/persentase, normalisasikan formatnya.
+  function injectedPercentage(matching) {
+    return average(
+      matching
+        .map(row => toPercent(row.values?.[10]))
+        .filter(value => value !== null)
+    );
+  }
+
+  function drawInjectedChart(groupKey, groupIndex) {
+    const names = groupNames(groupIndex);
+
+    const bars = names.map((name, i) => ({
+      label: name,
+      type: "bar",
+      data: lastWeeks.map(week => {
+        const matching = chartRows.filter(row =>
+          String(row.values?.[groupIndex] ?? "").trim() === name &&
+          String(row.values?.[1] ?? "").trim() === week
+        );
+        return injectedPercentage(matching);
+      }),
+      backgroundColor: colors[i % 4],
+      borderColor: colors[i % 4],
+      borderWidth: 1,
+      order: 2
+    }));
+
+    // ALL PG: rata-rata data persentase pada Week tersebut.
+    const allPG = {
+      label: "ALL PG",
+      type: "line",
+      data: lastWeeks.map(week =>
+        injectedPercentage(chartRows.filter(row =>
+          String(row.values?.[1] ?? "").trim() === week
+        ))
+      ),
+      borderColor: "#36A2EB",
+      backgroundColor: "#36A2EB",
+      borderWidth: 3,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.3,
+      fill: false,
+      order: 1
+    };
+
+    const standard = {
+      label: "Std 95%",
+      type: "line",
+      data: lastWeeks.map(() => 95),
+      borderColor: "#9966FF",
+      backgroundColor: "#9966FF",
+      borderWidth: 3,
+      borderDash: [8, 5],
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      fill: false,
+      order: 0
+    };
+
+    drawChart(
+      groupKey === "pg" ? "biPGInjectedChart" : "biWilayahInjectedChart",
+      groupKey + "Injected",
+      lastWeeks.map(week => `Week ${week}`),
+      [...bars, standard, allPG],
+      "Persentase TerInject"
+    );
+  }
+
+  drawInjectedChart("pg", 6);
+  drawInjectedChart("wilayah", 5);
+
+// Timing BI: On Time untuk 5 Week terakhir
+function drawTimingChart(groupKey, groupIndex) {
+  const names = groupNames(groupIndex);
+
+  // Batang masing-masing PG atau Wilayah
+  const bars = names.map((name, i) => ({
+    label: name,
+    type: "bar",
+    data: lastWeeks.map(week => {
+      const matching = chartRows.filter(row =>
+        String(row.values?.[groupIndex] ?? "").trim() === name &&
+        String(row.values?.[1] ?? "").trim() === week
+      );
+
+      const values = matching
+        .map(row => toPercent(row.values?.[16]))
+        .filter(value => value !== null);
+
+      return average(values);
+    }),
+    backgroundColor: colors[i % colors.length],
+    borderColor: colors[i % colors.length],
+    borderWidth: 1,
+    order: 2
+  }));
+
+  // Garis ALL PG: rata-rata seluruh PG/Wilayah per Week
+  const allPG = {
+    label: "ALL PG",
+    type: "line",
+    data: lastWeeks.map(week => {
+      const matching = chartRows.filter(row =>
+        String(row.values?.[1] ?? "").trim() === week
+      );
+
+      const values = matching
+        .map(row => toPercent(row.values?.[16]))
+        .filter(value => value !== null);
+
+      return average(values);
+    }),
+    borderColor: "#36A2EB",
+    backgroundColor: "#36A2EB",
+    borderWidth: 3,
+    pointRadius: 4,
+    tension: 0.3,
+    fill: false,
+    order: 1
+  };
+
+  // Garis standar 95%
+  const standard = {
+    label: "Std 95%",
+    type: "line",
+    data: lastWeeks.map(() => 95),
+    borderColor: "#9966FF",
+    backgroundColor: "#9966FF",
+    borderWidth: 3,
+    borderDash: [8, 5],
+    pointRadius: 0,
+    fill: false,
+    order: 0
+  };
+
+  drawChart(
+    groupKey === "pg"
+      ? "biPGTimingChart"
+      : "biWilayahTimingChart",
+    groupKey + "Timing",
+    lastWeeks.map(week => `Week ${week}`),
+    [...bars, allPG, standard],
+    "Persentase On Time BI"
+  );
+}
+
+  drawTimingChart("pg", 6);
+  drawTimingChart("wilayah", 5);
+}
+
+// =====================================================
+// GRAFIK LOKASI BI YANG TIDAK MEMENUHI STANDAR
+// X = Lokasi | Y = Terinject (%)
+// =====================================================
+
+window.biLocationRejectCharts =
+  window.biLocationRejectCharts || {};
+
+function renderBILocationRejectCharts() {
+  if (pageKey() !== "bud") return;
+
+  const rows = Array.isArray(biRows) ? biRows : [];
+  console.table(
+  rows.slice(0, 10).map(row => ({
+    week: row.values?.[1],
+    pg: row.values?.[6],
+    wilayah: row.values?.[5],
+    lokasi: row.values?.[7],
+    terinject: row.values?.[10],
+    onTime: row.values?.[16]
+  }))
+);
+  const selectedYear =
+    document.getElementById("yearFilter")?.value || "all";
+
+  const emptyMessage =
+    document.getElementById("biLocationRejectEmpty");
+
+  const chartGrid =
+    document.getElementById("biLocationRejectGrid");
+
+  if (!chartGrid) return;
+
+  // Filter tahun: indeks 3
+  const yearRows = rows.filter(row => {
+    const v = row.values || [];
+    return selectedYear === "all" ||
+      String(v[3] ?? "").trim() === String(selectedYear);
+  });
+
+  // Week: indeks 1
+  const weeks = [
+    ...new Set(
+      yearRows
+        .map(row => String(row.values?.[1] ?? "").trim())
+        .filter(Boolean)
+    )
+  ];
+
+  weeks.sort((a, b) => {
+    const na = parseInt(a.replace(/\D/g, ""), 10);
+    const nb = parseInt(b.replace(/\D/g, ""), 10);
+
+    if (Number.isNaN(na)) return String(a).localeCompare(String(b));
+    if (Number.isNaN(nb)) return String(a).localeCompare(String(b));
+
+    return na - nb;
+  });
+
+  const latestWeek = weeks[weeks.length - 1];
+
+  // Bersihkan grafik lama jika tidak ada data.
+  function clearCharts() {
+    ["PG1", "PG2", "PG3", "PG4"].forEach(pg => {
+      const chart = window.biLocationRejectCharts[pg];
+
+      if (chart) chart.destroy();
+
+      window.biLocationRejectCharts[pg] = null;
+    });
+  }
+
+  if (!yearRows.length || !latestWeek) {
+  clearCharts();
+
+  if (emptyMessage) {
+    emptyMessage.style.display = "flex";
+    emptyMessage.textContent = "Belum ada data untuk ditampilkan.";
+  }
+
+  chartGrid.style.display = "none";
+  return;
+}
+
+  if (emptyMessage) emptyMessage.style.display = "none";
+  chartGrid.style.display = "";
+
+  // Terinject: indeks 10
+  function toPercent(value) {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    const text = String(value).trim();
+    let number;
+
+    if (text.endsWith("%")) {
+      number = Number(text.slice(0, -1).replace(",", "."));
+    } else {
+      number = Number(text.replace(",", "."));
+
+      // Nilai 0–1 dianggap rasio.
+      if (Number.isFinite(number) && number >= 0 && number <= 1) {
+        number *= 100;
+      }
+    }
+
+    return Number.isFinite(number) ? number : null;
+  }
+
+  ["PG1", "PG2", "PG3", "PG4"].forEach(pg => {
+    // Filter PG + Week terbaru.
+    const matchedRows = yearRows.filter(row => {
+      const v = row.values || [];
+
+      return (
+        String(v[6] ?? "").trim().toUpperCase() === pg &&
+        String(v[1] ?? "").trim() === latestWeek
+      );
+    });
+
+    // Kelompokkan berdasarkan Lokasi: indeks 7.
+    const locationData = {};
+
+    matchedRows.forEach(row => {
+      const v = row.values || [];
+      const location = String(v[7] ?? "").trim();
+      const percentage = toPercent(v[10]);
+
+      if (!location || percentage === null) return;
+
+      if (!locationData[location]) {
+        locationData[location] = [];
+      }
+
+      locationData[location].push(percentage);
+    });
+
+    // Rata-rata Terinject per lokasi.
+    const rejectedLocations = [];
+
+    Object.entries(locationData).forEach(([location, values]) => {
+      const average =
+        values.reduce((sum, value) => sum + value, 0) /
+        values.length;
+
+      if (average < 95) {
+        rejectedLocations.push({
+          location,
+          value: average
+        });
+      }
+    });
+
+    // Terendah ke tertinggi, maksimal 10 lokasi.
+    rejectedLocations.sort((a, b) => a.value - b.value);
+    const top10 = rejectedLocations.slice(0, 10);
+
+    const canvas = document.getElementById(
+      `biLocationReject${pg}`
+    );
+
+    if (!canvas) return;
+
+    if (window.biLocationRejectCharts[pg]) {
+      window.biLocationRejectCharts[pg].destroy();
+    }
+
+    window.biLocationRejectCharts[pg] = null;
+
+    if (!top10.length) return;
+
+    window.biLocationRejectCharts[pg] = new Chart(canvas, {
+      type: "bar",
+
+      data: {
+        labels: top10.map(item => item.location),
+
+        datasets: [{
+          label: "Terinject",
+          data: top10.map(item => item.value),
+          backgroundColor: "#FF6384",
+          borderColor: "#D94B6A",
+          borderWidth: 1,
+          barPercentage: 0.55,
+          categoryPercentage: 0.65,
+          maxBarThickness: 35
+        }]
+      },
+
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        scales: {
+          y: {
+            min: 0,
+            max: 100,
+            ticks: {
+              callback: value => `${value}%`
+            },
+            title: {
+              display: true,
+              text: "Terinject (%)"
+            }
+          },
+
+          x: {
+            title: {
+              display: true,
+              text: "Lokasi"
+            }
+          }
+        },
+
+        plugins: {
+          legend: {
+            display: false
+          },
+
+          title: {
+            display: true,
+            text: `${pg} • Week ${latestWeek}`
+          },
+
+          tooltip: {
+            callbacks: {
+              label: context =>
+                `Terinject: ${context.parsed.y.toFixed(2)}%`
+            }
+          }
+        }
+      }
+    });
+  });
+
+    // Atur tampilan grafik dan pesan kosong.
+  const hasChart = ["PG1", "PG2", "PG3", "PG4"].some(
+    pg => window.biLocationRejectCharts[pg]
+  );
+
+  if (emptyMessage) {
+    emptyMessage.style.display = hasChart ? "none" : "flex";
+  }
+
+  if (chartGrid) {
+    chartGrid.style.display = hasChart ? "" : "none";
+  }
+}
+
+// EDIT DATA BUD INJECTION
+async function editBIRow(id) {
+  if (!staff()) {
+    alert("Silakan login sebagai Petugas.");
+    return;
+  }
+
+  const row = biRows.find(item => Number(item.id) === Number(id));
+
+  if (!row) {
+    alert("Data BI tidak ditemukan.");
+    return;
+  }
+
+  document.getElementById("biEditModal")?.remove();
+
+  const groups = [
+    {
+      title: "Identitas Pengamatan",
+      fields: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    },
+    {
+      title: "Hasil Injection",
+      fields: [10, 11, 12, 13, 14]
+    },
+    {
+      title: "Waktu Injection",
+      fields: [15, 16, 17]
+    },
+    {
+      title: "Kualitas Bud Injection",
+      fields: [18, 19]
+    }
+  ];
+
+  const values = [...row.values];
+  const headers = biHeaders;
+
+  const modal = document.createElement("div");
+  modal.id = "biEditModal";
+  modal.innerHTML = `
+    <style>
+      #biEditModal {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: rgba(16, 37, 27, .48);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+      }
+
+      #biEditModal .bi-modal-box {
+        background: #fff;
+        width: min(100%, 960px);
+        max-height: 92vh;
+        overflow-y: auto;
+        border-radius: 20px;
+        padding: 28px;
+        box-sizing: border-box;
+        box-shadow: 0 15px 50px rgba(0,0,0,.2);
+      }
+
+      #biEditModal .bi-modal-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 22px;
+      }
+
+      #biEditModal .bi-modal-icon {
+        background: #e8f5ed;
+        padding: 13px;
+        border-radius: 14px;
+        font-size: 23px;
+        display: inline-block;
+        margin-bottom: 14px;
+      }
+
+      #biEditModal h2 {
+        margin: 0 0 10px;
+        color: #123e2b;
+        font-size: 23px;
+      }
+
+      #biEditModal .bi-subtitle {
+        margin: 0;
+        color: #718078;
+        font-size: 13px;
+      }
+
+      #biEditModal .bi-close {
+        border: 0;
+        background: transparent;
+        font-size: 26px;
+        color: #718078;
+        cursor: pointer;
+      }
+
+      #biEditModal .bi-edit-section {
+        border: 1px solid #dce8df;
+        border-radius: 15px;
+        padding: 18px;
+        margin-bottom: 14px;
+      }
+
+      #biEditModal .bi-edit-section h3 {
+        margin: 0 0 20px;
+        color: #155b39;
+        font-size: 15px;
+      }
+
+      #biEditModal .bi-edit-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 20px 12px;
+      }
+
+      #biEditModal .bi-field {
+        min-width: 0;
+      }
+
+      #biEditModal .bi-field label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #42554a;
+      }
+
+      #biEditModal .bi-field input {
+        width: 100%;
+        height: 40px;
+        box-sizing: border-box;
+        padding: 9px 10px;
+        border: 1px solid #cbdcd0;
+        border-radius: 9px;
+        font-size: 13px;
+        color: #304438;
+        background: #fff;
+      }
+
+      #biEditModal .bi-field input:focus {
+        outline: 2px solid #b5d9c2;
+        border-color: #267447;
+      }
+
+      #biEditModal .bi-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding-top: 8px;
+      }
+
+      #biEditModal .bi-btn {
+        border: 0;
+        border-radius: 9px;
+        padding: 12px 18px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      #biEditModal .bi-btn-cancel {
+        background: #edf1ee;
+        color: #35473b;
+      }
+
+      #biEditModal .bi-btn-save {
+        background: #155b39;
+        color: white;
+      }
+
+      #biEditModal .bi-btn-save:disabled {
+        opacity: .6;
+        cursor: wait;
+      }
+
+      @media (max-width: 700px) {
+        #biEditModal {
+          padding: 8px;
+        }
+
+        #biEditModal .bi-modal-box {
+          padding: 18px;
+          max-height: 96vh;
+          border-radius: 14px;
+        }
+
+        #biEditModal .bi-edit-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        #biEditModal h2 {
+          font-size: 19px;
+        }
+      }
+    </style>
+
+    <div class="bi-modal-box">
+      <div class="bi-modal-top">
+        <div>
+          <div class="bi-modal-icon">📝</div>
+          <h2>Edit Data Bud Injection</h2>
+          <p class="bi-subtitle">
+            Ubah data yang diperlukan, lalu simpan perubahan.
+          </p>
+        </div>
+        <button type="button" class="bi-close" data-close
+          aria-label="Tutup">&times;</button>
+      </div>
+
+      <form id="biEditForm">
+        ${groups.map(group => `
+          <section class="bi-edit-section">
+            <h3>${group.title}</h3>
+            <div class="bi-edit-grid">
+              ${group.fields.map(index => {
+                if (!headers[index]) return "";
+
+                const value = values[index] ?? "";
+                const isDate = index === 0;
+                const inputType = isDate ? "date" : "text";
+
+                let displayValue = String(value);
+
+                if (isDate && /^\d{4}-\d{2}-\d{2}/.test(displayValue)) {
+                  displayValue = displayValue.slice(0, 10);
+                }
+
+                return `
+                  <div class="bi-field">
+                    <label for="biField${index}">
+                      ${esc(String(headers[index]))}
+                    </label>
+                    <input
+                      id="biField${index}"
+                      name="field${index}"
+                      type="${inputType}"
+                      value="${esc(displayValue)}"
+                      data-index="${index}"
+                    >
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          </section>
+        `).join("")}
+
+        <div class="bi-modal-actions">
+          <button type="button" class="bi-btn bi-btn-cancel"
+            data-close>Batal</button>
+          <button type="submit" class="bi-btn bi-btn-save">
+            💾 Simpan Perubahan
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+
+  modal.querySelectorAll("[data-close]").forEach(button => {
+    button.addEventListener("click", closeModal);
+  });
+
+  modal.addEventListener("click", event => {
+    if (event.target === modal) closeModal();
+  });
+
+  modal.querySelector("#biEditForm").addEventListener(
+    "submit",
+    async event => {
+      event.preventDefault();
+
+      if (!staff()) {
+        alert("Sesi Petugas tidak aktif. Silakan login kembali.");
+        return;
+      }
+
+      const saveButton = modal.querySelector(".bi-btn-save");
+      const updatedValues = [...values];
+
+      modal.querySelectorAll("[data-index]").forEach(input => {
+        const index = Number(input.dataset.index);
+        updatedValues[index] = input.value;
+      });
+
+      saveButton.disabled = true;
+      saveButton.textContent = "Menyimpan...";
+
+      try {
+        const { error } = await qcSupabase
+          .from(BI_TABLE)
+          .update({ row_data: updatedValues })
+          .eq("id", id);
+
+        if (error) throw error;
+
+        await loadBIFromSupabase();
+        modal.remove();
+        alert("Data Bud Injection berhasil diperbarui.");
+      } catch (error) {
+        console.error("Gagal menyimpan BI:", error);
+        alert("Gagal menyimpan perubahan: " + error.message);
+
+        saveButton.disabled = false;
+        saveButton.textContent = "💾 Simpan Perubahan";
+      }
+    }
+  );
+}
+
+
+// HAPUS DATA BUD INJECTION
+async function deleteBIRow(id) {
+  if (!staff()) {
+    alert("Silakan login sebagai Petugas.");
+    return;
+  }
+
+  const confirmed = confirm(
+    "Yakin ingin menghapus data BI ini?\nData yang dihapus tidak dapat dikembalikan."
+  );
+
+  if (!confirmed) return;
+
+  const { error } = await qcSupabase
+    .from(BI_TABLE)
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Gagal menghapus data BI:", error);
+    alert("Gagal menghapus data: " + error.message);
+    return;
+  }
+
+  await loadBIFromSupabase();
+  alert("Data BI berhasil dihapus.");
+}
+
+// Inisialisasi tabel BI
+
+function setupBI() {
+  if (!document.getElementById("dataTableBody")) return;
+
+  const yearFilter = document.getElementById("yearFilter");
+  const modeFilter = document.getElementById("biModeFilter");
+  const uploadButton = document.getElementById("uploadExcelBtn");
+  const fileInput = document.getElementById("excelFileInput");
+
+  yearFilter?.addEventListener("change", () => {
+    renderBI();
+    renderBIGraphs();
+    renderBILocationRejectCharts();
+  });
+
+  modeFilter?.addEventListener("change", renderBIGraphs);
+
+  document.getElementById("biChartReset")?.addEventListener("click", () => {
+    if (yearFilter) yearFilter.value = "all";
+    if (modeFilter) modeFilter.value = "all";
+    renderBI();
+    renderBIGraphs();
+    renderBILocationRejectCharts();
+  });
+
+  [
+    "biPGFilter",
+    "regionFilter",
+    "biLokasiFilter",
+    "biWeekFilter",
+    "biStandardFilter"
+  ].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", renderBI);
+  });
+
+  document.getElementById("biTableReset")?.addEventListener("click", () => {
+    [
+      "biPGFilter",
+      "regionFilter",
+      "biLokasiFilter",
+      "biWeekFilter",
+      "biStandardFilter"
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "all";
+    });
+
+    renderBI();
+  });
+
+  uploadButton?.addEventListener("click", () => {
+    if (!staff()) {
+      openLogin();
+      return;
+    }
+    fileInput?.click();
+  });
+
+  fileInput?.addEventListener("change", async event => {
+    try {
+      await importBIExcel(event.target.files?.[0]);
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  loadBIFromSupabase().then(() => {
+    renderBI();
+    renderBIGraphs();
+    renderBILocationRejectCharts();
+  }).catch(error => {
+    console.error("Gagal memuat BI:", error);
+  });
+
+  initBIDocumentation();
+}
+
+
+
+// =============================================
+// UPLOAD EXCEL BUD INJECTION
+// Mengikuti pola importPropping()
+// =============================================
+
+async function importBIExcel(file) {
+  if (!file) return;
+
+  if (localStorage.getItem(LOGIN_KEY) !== "true") {
+    alert("Silakan login sebagai Petugas terlebih dahulu.");
+    return;
+  }
+
+  if (!qcSupabase) {
+    alert("Supabase belum terhubung.");
+    return;
+  }
+
+  if (typeof XLSX === "undefined") {
+    alert("Pembaca Excel belum tersedia.");
+    return;
+  }
+
+  try {
+    console.log("📥 Membaca file Excel BI:", file.name);
+
+    const buffer = await file.arrayBuffer();
+
+    const workbook = XLSX.read(buffer, {
+      type: "array",
+      raw: true,
+      cellDates: false
+    });
+
+    const sheetName = workbook.SheetNames.find(
+      name => name.trim().toLowerCase() === "rekap data bi"
+    );
+
+    if (!sheetName) {
+      alert('Sheet "Rekap Data BI" tidak ditemukan.');
+      return;
+    }
+
+    const worksheet = workbook.Sheets[sheetName];
+
+    // Header Excel baris 4; data mulai baris 5.
+    const sheetRows = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      range: 3,
+      defval: "",
+      raw: true
+    });
+
+    if (!sheetRows.length) {
+      alert("Sheet Rekap Data BI kosong.");
+      return;
+    }
+
+    const headers = sheetRows[0].map(value =>
+      String(value ?? "").trim()
+    );
+
+    const expectedHeaders = [
+      "Tanggal",
+      "Week",
+      "Bulan",
+      "Tahun",
+      "Mandor Lokasi",
+      "Wilayah",
+      "PG",
+      "Lokasi",
+      "Status",
+      "Umur",
+      "Terinject",
+      "Miss Out",
+      "Tepat",
+      "Mengenai Buah",
+      "Terlalu Ujung",
+      "Early",
+      "On Time",
+      "Late",
+      "Kualitas BI",
+      "Injection BI <95%"
+    ];
+
+    const normalizeHeader = value =>
+      String(value ?? "")
+        .trim()
+        .toLowerCase();
+
+    const headersMatch =
+      headers.length === expectedHeaders.length &&
+      expectedHeaders.every(
+        (header, index) =>
+          normalizeHeader(headers[index]) ===
+          normalizeHeader(header)
+      );
+
+    if (!headersMatch) {
+      console.error("Header Excel:", headers);
+
+      alert(
+        "Header Excel tidak sesuai dengan format BI yang diharapkan.\n" +
+        "Pastikan header berada di baris 4 dan terdiri dari 20 kolom."
+      );
+      return;
+    }
+
+    const dataRows = sheetRows
+      .slice(1)
+      .filter(row =>
+        Array.isArray(row) &&
+        row.some(value => String(value ?? "").trim() !== "")
+      )
+      .map(row =>
+        headers.map((_, index) => row[index] ?? "")
+      );
+
+    if (!dataRows.length) {
+      alert("Tidak ada data BI yang ditemukan mulai baris 5.");
+      return;
+    }
+
+    console.log("📊 Jumlah baris Excel:", dataRows.length);
+    console.log("Contoh baris BI:", dataRows[0]);
+
+    const confirmed = confirm(
+      `Ditemukan ${dataRows.length} baris data BI.\n\n` +
+      "Seluruh data Bud Injection lama akan diganti dengan data Excel ini.\n\n" +
+      "Lanjutkan?"
+    );
+
+    if (!confirmed) return;
+
+    // Hapus data lama mengikuti pola Propping.
+    console.log("🗑️ Menghapus data BI lama...");
+
+    const { error: deleteError } = await qcSupabase
+      .from(BI_TABLE)
+      .delete()
+      .not("id", "is", null);
+
+    if (deleteError) {
+      console.error("Gagal menghapus data BI lama:", deleteError);
+      alert("Gagal menghapus data BI lama:\n" + deleteError.message);
+      return;
+    }
+
+    // Upload bertahap, 500 baris per request.
+    const chunkSize = 500;
+
+    for (let i = 0; i < dataRows.length; i += chunkSize) {
+      const chunk = dataRows.slice(i, i + chunkSize);
+
+      const payload = chunk.map(row => ({
+        row_data: row,
+        headers: headers
+      }));
+
+      console.log(
+        `📤 Upload BI ${i + 1}–${Math.min(
+          i + chunk.length,
+          dataRows.length
+        )} dari ${dataRows.length}`
+      );
+
+      const { error: insertError } = await qcSupabase
+        .from(BI_TABLE)
+        .insert(payload);
+
+      if (insertError) {
+        console.error("Upload BI gagal:", insertError);
+
+        alert(
+          "Upload BI gagal pada baris data ke-" +
+          (i + 1) +
+          ".\n\n" +
+          insertError.message +
+          "\n\nData baru mungkin baru terunggah sebagian."
+        );
+
+        return;
+      }
+    }
+
+    console.log("✅ Upload Bud Injection selesai.");
+
+    await loadBIFromSupabase();
+
+    alert(
+      `Upload Bud Injection berhasil!\n\n` +
+      `${dataRows.length} baris berhasil disimpan.`
+    );
+
+  } catch (error) {
+    console.error("Error importBIExcel:", error);
+
+    alert(
+      "Terjadi kesalahan saat upload Excel BI:\n\n" +
+      (error.message || error)
+    );
+  }
 }
 
 function setupGeneric() {
@@ -2547,6 +4133,48 @@ function setupSidebar() {
   document.querySelectorAll(".nav-link").forEach(a => a.onclick = close);
 }
 
+
+async function getBIFromSupabase() {
+  if (!qcSupabase) {
+    console.error("Supabase belum tersedia.");
+    return [];
+  }
+
+  const allRows = [];
+  const pageSize = 1000;
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await qcSupabase
+      .from("bud_injection_data")
+      .select("id, row_data, headers")
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error("Gagal mengambil data BI:", error);
+      return [];
+    }
+
+    allRows.push(...(data || []));
+
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  const firstWithHeaders = allRows.find(
+    row => Array.isArray(row.headers) && row.headers.length
+  );
+
+  window.biHeaders = firstWithHeaders?.headers || [];
+
+  return allRows.map(row => ({
+    id: row.id,
+    values: Array.isArray(row.row_data) ? row.row_data : []
+  }));
+}
+
+
 document.addEventListener("DOMContentLoaded", async () => {
 
   setupSidebar();
@@ -2568,6 +4196,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   } else if (pageKey() === "buah") {
 
     setupBuah10mg();
+
+  } else if (pageKey() === "bud") {
+
+    setupBI();
 
   } else {
 
@@ -2820,7 +4452,7 @@ if (documentationUploadBtn && documentationInput) {
       // Kalau Petugas membatalkan
       if (keterangan === null) {
 
-        documentationInput.value = "";
+        documentatopionInput.value = "";
 
         return;
       }
@@ -7518,11 +9150,43 @@ function renderAgronomiCharts(rows) {
   ];
 
   const metrics = [
-    { key: "downGrade", title: "Down Grade", subtitle: "≤ 13 CM" },
-    { key: "underStandard", title: "Under Standard", subtitle: "Sesuai kategori umur" },
-    { key: "standard", title: "Standard", subtitle: "Sesuai kategori umur" },
-    { key: "satisfactory", title: "Satisfactory", subtitle: "Sesuai kategori umur" }
-  ];
+  {
+    key: "downGrade",
+    title: "Down Grade",
+    subtitles: {
+      "2PSFC": "≤ 13 cm",
+      "4PSFC": "< 36 cm",
+      "4PSSC": "< 28 cm"
+    }
+  },
+  {
+    key: "underStandard",
+    title: "Under Standard",
+    subtitles: {
+      "2PSFC": "13–18,9 cm",
+      "4PSFC": "36–42,9 cm",
+      "4PSSC": "28–33 cm"
+    }
+  },
+  {
+    key: "standard",
+    title: "Standard",
+    subtitles: {
+      "2PSFC": "19–20,9 cm",
+      "4PSFC": "43–45,9 cm",
+      "4PSSC": "34–36 cm"
+    }
+  },
+  {
+    key: "satisfactory",
+    title: "Satisfactory",
+    subtitles: {
+      "2PSFC": "≥ 21 cm",
+      "4PSFC": "> 46 cm",
+      "4PSSC": "> 36 cm"
+    }
+  }
+];
 
   // Cari tahun terbaru yang tersedia pada data.
   const years = rows
@@ -7608,7 +9272,7 @@ function renderAgronomiCharts(rows) {
       title.textContent = `${metric.title} — ${age.label}`;
 
       const subtitle = document.createElement("span");
-      subtitle.textContent = metric.subtitle;
+      subtitle.textContent = metric.subtitles[age.key] || "-";
 
       heading.append(title, subtitle);
 
@@ -8493,3 +10157,259 @@ async function setupAgronomi() {
     }
   });
 })();
+
+// DOKUMENTASI BUD INJECTION
+const BI_DOC_BUCKET = "qc-documentation";
+const BI_DOC_FOLDER = "bi-documentation";
+const BI_DOC_TABLE = "bi_documentation";
+let biDocumentationRows = [];
+
+function getBIDocClient() {
+  if (
+    typeof qcSupabase === "undefined" ||
+    !qcSupabase ||
+    typeof qcSupabase.from !== "function"
+  ) {
+    throw new Error("Client Supabase qcSupabase belum tersedia.");
+  }
+
+  return qcSupabase;
+}
+
+async function loadBIDocumentation() {
+  const grid = document.getElementById("biDocumentationGrid");
+  const info = document.getElementById("biDocumentationInfo");
+
+  if (!grid) return;
+
+  try {
+    const client = getBIDocClient();
+
+    grid.innerHTML = `
+      <div class="documentation-empty">Memuat dokumentasi...</div>
+    `;
+
+    const { data, error } = await client
+      .from(BI_DOC_TABLE)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    biDocumentationRows = data || [];
+    renderBIDocumentation();
+
+    if (info) {
+      info.textContent =
+        `${biDocumentationRows.length} dokumentasi tersimpan.`;
+    }
+  } catch (error) {
+    console.error("Gagal memuat dokumentasi BI:", error);
+
+    grid.innerHTML = `
+      <div class="documentation-empty">
+        Dokumentasi gagal dimuat: ${escapeBIDocText(error.message)}
+      </div>
+    `;
+  }
+}
+
+function escapeBIDocText(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
+function renderBIDocumentation() {
+  const grid = document.getElementById("biDocumentationGrid");
+  const search = document.getElementById("biDocumentationSearch");
+
+  if (!grid) return;
+
+  const keyword = (search?.value || "").trim().toLowerCase();
+
+  const filtered = biDocumentationRows.filter(row =>
+    (row.keterangan || "").toLowerCase().includes(keyword)
+  );
+
+  if (!filtered.length) {
+    grid.innerHTML = `
+      <div class="documentation-empty">
+        ${keyword
+          ? "Dokumentasi tidak ditemukan."
+          : "Belum ada dokumentasi foto."}
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(row => `
+    <article class="documentation-card">
+      <img
+        src="${escapeBIDocText(row.foto_url || "")}"
+        alt="${escapeBIDocText(row.keterangan || "Dokumentasi Bud Injection")}"
+        loading="lazy"
+      >
+
+      <div class="documentation-card-body">
+        <p>${escapeBIDocText(row.keterangan || "Tanpa keterangan")}</p>
+
+        <small>
+          ${row.created_at
+            ? new Date(row.created_at).toLocaleDateString("id-ID")
+            : ""}
+        </small>
+
+        ${typeof staff === "function" && staff() ? `
+          <button
+            type="button"
+            class="documentation-delete-btn"
+            data-delete-bi-doc="${row.id}"
+          >Hapus</button>
+        ` : ""}
+      </div>
+    </article>
+  `).join("");
+}
+
+function initBIDocumentation() {
+  const uploadBtn =
+    document.getElementById("biDocumentationUploadBtn");
+  const fileInput =
+    document.getElementById("biDocumentationInput");
+  const searchInput =
+    document.getElementById("biDocumentationSearch");
+  const grid =
+    document.getElementById("biDocumentationGrid");
+
+  if (!uploadBtn || !fileInput || !grid) return;
+
+  // Hindari memasang event listener berulang.
+  if (uploadBtn.dataset.biDocReady === "true") return;
+  uploadBtn.dataset.biDocReady = "true";
+
+  uploadBtn.addEventListener("click", () => {
+    if (typeof staff === "function" && !staff()) {
+      alert("Silakan login sebagai petugas untuk mengunggah foto.");
+      return;
+    }
+
+    fileInput.click();
+  });
+
+  searchInput?.addEventListener("input", renderBIDocumentation);
+
+  fileInput.addEventListener("change", async () => {
+    const files = Array.from(fileInput.files || []);
+    if (!files.length) return;
+
+    if (typeof staff === "function" && !staff()) {
+      alert("Silakan login sebagai petugas.");
+      fileInput.value = "";
+      return;
+    }
+
+    uploadBtn.disabled = true;
+
+    try {
+      const client = getBIDocClient();
+
+      for (const file of files) {
+        if (!file.type.startsWith("image/")) {
+          throw new Error(`${file.name} bukan file gambar.`);
+        }
+
+        const keterangan = prompt(
+          `Masukkan keterangan foto:\n${file.name}`,
+          ""
+        );
+
+        if (keterangan === null) continue;
+
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const uniqueId = crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+        const path = `${BI_DOC_FOLDER}/${Date.now()}_${uniqueId}_${safeName}`;
+
+        const { error: uploadError } = await client.storage
+          .from(BI_DOC_BUCKET)
+          .upload(path, file, {
+            upsert: false,
+            contentType: file.type
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = client.storage
+          .from(BI_DOC_BUCKET)
+          .getPublicUrl(path);
+
+        const { error: insertError } = await client
+          .from(BI_DOC_TABLE)
+          .insert([{
+            foto_url: urlData.publicUrl,
+            keterangan: keterangan.trim()
+          }]);
+
+        if (insertError) {
+          await client.storage.from(BI_DOC_BUCKET).remove([path]);
+          throw insertError;
+        }
+      }
+
+      await loadBIDocumentation();
+      alert("Upload dokumentasi selesai.");
+    } catch (error) {
+      console.error("Upload dokumentasi BI gagal:", error);
+      alert(`Upload gagal: ${error.message}`);
+    } finally {
+      uploadBtn.disabled = false;
+      fileInput.value = "";
+    }
+  });
+
+  grid.addEventListener("click", async event => {
+    const button = event.target.closest("[data-delete-bi-doc]");
+    if (!button) return;
+
+    if (typeof staff === "function" && !staff()) {
+      alert("Silakan login sebagai petugas.");
+      return;
+    }
+
+    const id = button.dataset.deleteBiDoc;
+    const row = biDocumentationRows.find(
+      item => String(item.id) === String(id)
+    );
+
+    if (!row || !confirm("Hapus dokumentasi ini?")) return;
+
+    try {
+      const client = getBIDocClient();
+
+      const { error } = await client
+        .from(BI_DOC_TABLE)
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      await loadBIDocumentation();
+
+      alert(
+        "Data dokumentasi dihapus. File foto di Storage belum ikut dihapus."
+      );
+    } catch (error) {
+      console.error("Hapus dokumentasi BI gagal:", error);
+      alert(`Gagal menghapus dokumentasi: ${error.message}`);
+    }
+  });
+
+  loadBIDocumentation();
+}
