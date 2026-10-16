@@ -2077,3 +2077,137 @@ select {
   width: 100%;
   box-sizing: border-box;
 }
+
+/* =========================================
+   GRAFIK BUD INJECTION
+   Samakan ukuran dan layout dengan Propping
+========================================= */
+
+/* Grafik Bud Injection: satu grafik per baris */
+
+#biChartArea {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  width: 100%;
+}
+
+#biChartArea .propping-chart-card {
+  width: 100%;
+  min-width: 0;
+  min-height: 390px;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+#biChartArea .propping-chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 320px;
+}
+
+#biChartArea .propping-chart-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 320px !important;
+}
+
+@media (max-width: 600px) {
+  #biChartArea .propping-chart-card {
+    padding: 14px;
+  }
+
+  #biChartArea .propping-chart-wrap,
+  #biChartArea .propping-chart-wrap canvas {
+    height: 280px !important;
+  }
+}
+
+/* Grafik lokasi: 2 kolom x 2 baris */
+.bi-location-reject-grid,
+.propping-minavg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.bi-location-reject-card,
+.propping-minavg-grid .propping-chart-card {
+  min-width: 0;
+  width: 100%;
+}
+
+.bi-location-reject-wrap,
+.propping-minavg-grid .propping-chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 320px;
+}
+
+/* Tampilan HP */
+@media (max-width: 700px) {
+  .bi-location-reject-grid,
+  .propping-minavg-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================
+   DOKUMENTASI BUD INJECTION
+========================================= */
+
+.bi-documentation {
+  display: block;
+  width: 100%;
+  margin-top: 24px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #dfe8e2;
+  border-radius: 18px;
+  box-sizing: border-box;
+}
+
+/* Pesan kosong grafik Bud Injection */
+.bi-chart-empty {
+  display: none;
+  min-height: 100px;
+  margin-top: 12px;
+  padding: 24px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+  color: #7b8b82;
+  background: #f5f8f6;
+  border-radius: 14px;
+}
+
+/* Sembunyikan area grafik saat data kosong */
+#biChartArea.bi-chart-area-hidden {
+  display: none !important;
+}
+
+/* Pesan kosong grafik lokasi BI */
+#biLocationRejectEmpty {
+  width: 100%;
+  min-height: 140px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+  padding: 24px;
+  color: #819087;
+  background: #f4f8f5;
+  border-radius: 14px;
+  margin: 0;
+}
+
+/* Sembunyikan grid saat tidak ada data */
+#biLocationRejectGrid {
+  width: 100%;
+}
+
+#biLocationRejectGrid[style*="display: none"] {
+  display: none !important;
+}
