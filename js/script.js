@@ -1013,6 +1013,9 @@ if (empty) {
           }
         },
         plugins: {
+          datalabels: {
+            display: false
+          },
           legend: { position: "bottom" },
           tooltip: {
             callbacks: {
@@ -1922,9 +1925,10 @@ async function importBIExcel(file) {
       return;
     }
 
-    const headers = sheetRows[0].map(value =>
-      String(value ?? "").trim()
-    );
+    // 1. Ambil header dan buang kolom kosong di ujung (jika ada sel tak sengaja terformat di Excel)
+    const headers = sheetRows[0]
+      .map(value => String(value ?? "").trim())
+      .filter(header => header !== ""); // Membuang string kosong ""
 
     const expectedHeaders = [
       "Tanggal",
@@ -1954,6 +1958,7 @@ async function importBIExcel(file) {
         .trim()
         .toLowerCase();
 
+    // 2. Cek apakah setelah difilter panjangnya sudah 20 dan isinya sesuai
     const headersMatch =
       headers.length === expectedHeaders.length &&
       expectedHeaders.every(
@@ -1972,6 +1977,7 @@ async function importBIExcel(file) {
       return;
     }
 
+    // 3. Mapping data row hanya mengambil sejumlah kolom header yang valid (20 kolom pertama)
     const dataRows = sheetRows
       .slice(1)
       .filter(row =>
@@ -3798,6 +3804,10 @@ window.dashboardProppingCharts.forEach(chart => {
 
         plugins: {
 
+          datalabels: {
+            display: false
+          },
+
           legend: {
             position: "bottom"
           },
@@ -4209,6 +4219,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Tunggu dashboard selesai mengambil data Bibit
   await dashboard();
+
+  if (document.getElementById("dashboardBICharts")) {
+  await renderDashboardBICharts();
+}
+
+  // Grafik Agronomi Dashboard
+  if (document.getElementById("dashboardAgronomiChartGrid")) {
+    await renderDashboardAgronomi();
+  }
 
   // Setelah dashboard selesai,
   // jalankan grafik Propping Dashboard
@@ -9294,7 +9313,12 @@ function renderAgronomiCharts(rows) {
             ? null
             : Number((value * 100).toFixed(2));
         }),
-        backgroundColor: pgColors[index]
+        backgroundColor: [
+  "rgba(23, 107, 135, 0.55)",
+  "rgba(237, 113, 53, 0.55)",
+  "rgba(23, 107, 44, 0.55)",
+  "rgba(21, 155, 211, 0.55)"
+][index]
       }));
 
       new Chart(canvas, {
@@ -10413,3 +10437,513 @@ function initBIDocumentation() {
 
   loadBIDocumentation();
 }
+
+
+/* =========================================
+   DASHBOARD AGRONOMI
+   4 GRADE + FILTER UMUR
+========================================= */
+
+async function renderDashboardAgronomi() {
+  const grid = document.getElementById(
+    "dashboardAgronomiChartGrid"
+  );
+
+  const ageFilter = document.getElementById(
+    "dashboardAgronomiAgeFilter"
+  );
+
+  const yearLabel = document.getElementById(
+    "dashboardAgronomiYear"
+  );
+
+  if (!grid || !ageFilter) return;
+
+  // Ambil data aktual dari Supabase
+  grid.innerHTML = `
+    <div class="chart-empty">Memuat data Agronomi...</div>
+  `;
+
+  let rows;
+
+  try {
+    rows = await getAgronomiFromSupabase();
+  } catch (error) {
+    console.error("Gagal memuat grafik Agronomi:", error);
+
+    grid.innerHTML = `
+      <div class="chart-empty">
+        Data Agronomi gagal dimuat. Silakan muat ulang halaman.
+      </div>
+    `;
+    return;
+  }
+
+  if (!rows.length) {
+    grid.innerHTML = `
+      <div class="chart-empty">
+        Belum ada data Agronomi di Supabase.
+      </div>
+    `;
+    return;
+  }
+
+  // Tentukan tahun terbaru dari data Agronomi
+  const years = rows
+    .map(row => Number(row.values?.[5]))
+    .filter(year => Number.isInteger(year) && year > 0);
+
+  if (!years.length) {
+    grid.innerHTML = `
+      <div class="chart-empty">
+        Tahun pada data Agronomi tidak ditemukan.
+      </div>
+    `;
+    return;
+  }
+
+  const latestAgronomiYear = String(Math.max(...years));
+
+  if (yearLabel) {
+    yearLabel.textContent = latestAgronomiYear;
+  }
+
+  // Simpan grafik agar dapat dihancurkan sebelum digambar ulang
+  window.dashboardAgronomiCharts =
+    window.dashboardAgronomiCharts || [];
+
+  function drawCharts() {
+    window.dashboardAgronomiCharts.forEach(chart => {
+      try {
+        chart.destroy();
+      } catch (error) {
+        console.warn("Grafik lama tidak dapat dihapus:", error);
+      }
+    });
+
+    window.dashboardAgronomiCharts = [];
+    grid.innerHTML = "";
+
+    const selectedAge = ageFilter.value || "2PSFC";
+
+    const metrics = [
+      {
+        key: "downGrade",
+        title: "Down Grade"
+      },
+      {
+        key: "underStandard",
+        title: "Under Standard"
+      },
+      {
+        key: "standard",
+        title: "Standard"
+      },
+      {
+        key: "satisfactory",
+        title: "Satisfactory"
+      }
+    ];
+
+    // Gunakan fungsi perhitungan Agronomi yang sudah ada
+    const quarterData = buildAgronomiQuarterData(
+      rows,
+      latestAgronomiYear,
+      selectedAge
+    );
+
+    if (!quarterData || !Object.keys(quarterData).length) {
+      grid.innerHTML = `
+        <div class="chart-empty">
+          Data perhitungan Agronomi tidak tersedia.
+        </div>
+      `;
+      return;
+    }
+
+    const quarters = ["Q1", "Q2", "Q3", "Q4"];
+    const pgs = ["PG1", "PG2", "PG3", "PG4"];
+
+    const colors = [
+      "#176b87",
+      "#ed7135",
+      "#176b2c",
+      "#159bd3"
+    ];
+
+    let chartCount = 0;
+
+    metrics.forEach(metric => {
+      const hasData = quarters.some(quarter =>
+        pgs.some(pg => {
+          const value =
+            quarterData?.[quarter]?.[pg]?.[metric.key];
+
+          return value !== null &&
+            value !== undefined &&
+            Number.isFinite(Number(value));
+        })
+      );
+
+      if (!hasData) return;
+
+      const card = document.createElement("div");
+      card.className = "agronomi-chart-card";
+
+      const heading = document.createElement("div");
+      heading.className = "chart-card-title";
+
+      const title = document.createElement("h3");
+      title.textContent = metric.title;
+
+      const subtitle = document.createElement("span");
+      subtitle.textContent =
+        `${selectedAge} • ${latestAgronomiYear}`;
+
+      heading.append(title, subtitle);
+
+      const wrap = document.createElement("div");
+      wrap.className = "propping-chart-wrap";
+
+      const canvas = document.createElement("canvas");
+      canvas.id = `dashboardAgronomi_${metric.key}`;
+
+      wrap.appendChild(canvas);
+      card.append(heading, wrap);
+      grid.appendChild(card);
+
+      
+      const datasets = pgs.map((pg, index) => ({
+        label: pg,
+        data: quarters.map(quarter => {
+          const value =
+            quarterData?.[quarter]?.[pg]?.[metric.key];
+
+          return value === null || value === undefined
+            ? null
+            : Number((value * 100).toFixed(2));
+        }),
+        backgroundColor: [
+          "rgba(23, 107, 135, 0.55)",
+          "rgba(237, 113, 53, 0.55)",
+          "rgba(23, 107, 44, 0.55)",
+          "rgba(21, 155, 211, 0.55)"
+        ][index]
+      }));
+
+
+      const chart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: quarters,
+          datasets
+        },
+        plugins: [ChartDataLabels],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: {
+            padding: { top: 12 }
+          },
+          
+          plugins: {
+            legend: {
+              position: "bottom"
+            },
+            datalabels: {
+              display: true,
+              anchor: "end",
+              align: "top",
+              offset: 2,
+              color: "#374151",
+              font: {
+                size: 10,
+                weight: "bold"
+              },
+              formatter: function(value) {
+                return value === null || value === undefined
+                  ? ""
+                  : value + "%";
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  const value = context.raw;
+                  return value == null
+                    ? `${context.dataset.label}: -`
+                    : `${context.dataset.label}: ${value}%`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              min: 0,
+              max: 100,
+              ticks: {
+                stepSize: 20,
+                callback: value => `${value}%`
+              }
+            }
+          }
+        }
+      });
+
+      window.dashboardAgronomiCharts.push(chart);
+      chartCount++;
+    });
+
+    if (!chartCount) {
+      grid.innerHTML = `
+        <div class="chart-empty">
+          Belum ada data grafik untuk ${selectedAge}
+          pada tahun ${latestAgronomiYear}.
+        </div>
+      `;
+    }
+  }
+
+  // Pertama kali tampil: 2PSFC
+  if (!ageFilter.dataset.dashboardInitialized) {
+    ageFilter.value = "2PSFC";
+    ageFilter.dataset.dashboardInitialized = "true";
+  }
+
+  // Gambar grafik awal
+  drawCharts();
+
+  // Ganti umur tanpa memuat ulang halaman
+  if (!ageFilter.dataset.dashboardListener) {
+    ageFilter.addEventListener("change", drawCharts);
+    ageFilter.dataset.dashboardListener = "true";
+  }
+}
+
+
+let dashboardBICharts = {};
+
+async function renderDashboardBICharts() {
+  const container = document.getElementById("dashboardBICharts");
+  if (!container || typeof Chart === "undefined") return;
+
+  const rows = await getBIFromSupabase();
+
+  if (!rows.length) {
+    container.innerHTML =
+      '<div class="chart-empty">Belum ada data Bud Injection.</div>';
+    return;
+  }
+
+  const validRows = rows.filter(row => Array.isArray(row.values));
+
+  const years = validRows
+    .map(row => Number(row.values[3]))
+    .filter(year => Number.isFinite(year) && year > 0);
+
+  if (!years.length) return;
+
+  const latestYear = Math.max(...years);
+
+  const yearRows = validRows.filter(
+    row => Number(row.values[3]) === latestYear
+  );
+
+  function weekNumber(value) {
+    const match = String(value ?? "").match(/\d+/);
+    return match ? Number(match[0]) : 999;
+  }
+
+  const weeks = [...new Set(
+    yearRows
+      .map(row => String(row.values?.[1] ?? "").trim())
+      .filter(Boolean)
+  )].sort((a, b) => weekNumber(a) - weekNumber(b));
+
+  const lastWeeks = weeks.slice(-5);
+
+  const chartRows = yearRows.filter(row =>
+    lastWeeks.includes(String(row.values?.[1] ?? "").trim())
+  );
+
+  const colors = [
+    "#FF6384",
+    "#FF9F40",
+    "#FFCD56",
+    "#4BC0C0",
+    "#9966FF",
+    "#A5A5A5",
+    "#36A2EB"
+  ];
+
+  function toPercent(value) {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+
+    return n >= 0 && n <= 1 ? n * 100 : n;
+  }
+
+  function average(values) {
+    const valid = values.filter(Number.isFinite);
+    if (!valid.length) return null;
+
+    return valid.reduce((sum, n) => sum + n, 0) / valid.length;
+  }
+
+  function injectedPercentage(matching) {
+    return average(
+      matching
+        .map(row => toPercent(row.values?.[10]))
+        .filter(value => value !== null)
+    );
+  }
+
+  function drawInjectedChart(groupKey, groupIndex, canvasId) {
+    const names = [...new Set(
+      chartRows
+        .map(row => String(row.values?.[groupIndex] ?? "").trim())
+        .filter(Boolean)
+    )].sort();
+
+    const bars = names.map((name, i) => ({
+      label: name,
+      type: "bar",
+      data: lastWeeks.map(week => {
+        const matching = chartRows.filter(row =>
+          String(row.values?.[groupIndex] ?? "").trim() === name &&
+          String(row.values?.[1] ?? "").trim() === week
+        );
+
+        return injectedPercentage(matching);
+      }),
+      backgroundColor: colors[i % 4],
+      borderColor: colors[i % 4],
+      borderWidth: 1,
+      order: 2
+    }));
+
+    const allPG = {
+      label: "ALL PG",
+      type: "line",
+      data: lastWeeks.map(week =>
+        injectedPercentage(chartRows.filter(row =>
+          String(row.values?.[1] ?? "").trim() === week
+        ))
+      ),
+      borderColor: "#36A2EB",
+      backgroundColor: "#36A2EB",
+      borderWidth: 3,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.3,
+      fill: false,
+      order: 1
+    };
+
+    const standard = {
+      label: "Std 95%",
+      type: "line",
+      data: lastWeeks.map(() => 95),
+      borderColor: "#9966FF",
+      backgroundColor: "#9966FF",
+      borderWidth: 3,
+      borderDash: [8, 5],
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      fill: false,
+      order: 0
+    };
+
+    const oldChart = dashboardBICharts[groupKey];
+    if (oldChart) oldChart.destroy();
+
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    dashboardBICharts[groupKey] = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: lastWeeks.map(week => `Week ${week}`),
+        datasets: [...bars, standard, allPG]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false
+        },
+        
+        datasets: {
+          bar: {
+            barPercentage: 0.55,
+            categoryPercentage: 0.65
+          }
+        },
+        scales: {
+          y: {
+            min: 0,
+            max: 120,
+            beginAtZero: true,
+            bounds: "ticks",
+            afterBuildTicks: axis => {
+              axis.ticks = [0, 20, 40, 60, 80, 100, 120]
+                .map(value => ({ value }));
+            },
+            ticks: {
+              stepSize: 20,
+              autoSkip: false,
+              callback: value => `${value}%`
+            },
+            title: {
+              display: true,
+              text: "Persentase"
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: "Periode"
+            }
+          }
+        },
+        plugins: {
+          datalabels: {
+            display: false
+          },
+          legend: {
+            position: "bottom"
+          },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const value = context.raw;
+                return value == null
+                  ? `${context.dataset.label}: -`
+                  : `${context.dataset.label}: ${Number(value).toFixed(1)}%`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  drawInjectedChart(
+    "pg",
+    6,
+    "dashboardBIPGInjectedChart"
+  );
+
+  drawInjectedChart(
+    "wilayah",
+    5,
+    "dashboardBIWilayahInjectedChart"
+  );
+}
+

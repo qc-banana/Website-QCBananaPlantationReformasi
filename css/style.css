@@ -2211,3 +2211,89 @@ select {
 #biLocationRejectGrid[style*="display: none"] {
   display: none !important;
 }
+
+
+/* Grafik Agronomi pada Dashboard */
+.dashboard-agronomi-section {
+  margin-top: 24px;
+}
+
+.dashboard-agronomi-filter {
+  margin: 16px 0;
+  align-items: center;
+}
+
+.dashboard-agronomi-filter strong {
+  display: block;
+  padding: 10px 0;
+}
+
+#dashboardAgronomiChartGrid .agronomi-chart-card {
+  min-width: 0;
+}
+
+#dashboardAgronomiChartGrid .propping-chart-wrap {
+  position: relative;
+  height: 300px;
+  min-height: 260px;
+}
+
+@media (max-width: 768px) {
+  #dashboardAgronomiChartGrid .propping-chart-wrap {
+    height: 260px;
+  }
+}
+
+
+/* DASHBOARD BUD INJECTION */
+.dashboard-bi-section {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.dashboard-bi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.dashboard-bi-chart {
+  min-width: 0;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid #e5eae6;
+  border-radius: 12px;
+}
+
+.dashboard-bi-chart h3 {
+  margin: 0 0 16px;
+  color: #173f2a;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dashboard-bi-chart-container {
+  position: relative;
+  width: 100%;
+  height: 320px;
+}
+
+.dashboard-bi-chart-container canvas {
+  display: block;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .dashboard-bi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-bi-chart {
+    padding: 14px;
+  }
+
+  .dashboard-bi-chart-container {
+    height: 280px;
+  }
+}
