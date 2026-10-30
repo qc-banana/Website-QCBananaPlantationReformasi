@@ -2182,223 +2182,12 @@ async function loadBuah10mgFromSupabase() {
 
   console.log("Data Buah 10 MG dimuat:", buah10mgRows.length);
 
-  isiFilterBuah10mg();
+  updateBuah10mgCascadingFilters();
   renderBuah10mg();
-}
-
-function isiFilterBuah10mg() {
-  const yearFilter = document.getElementById("yearFilter");
-  const regionFilter = document.getElementById("regionFilter");
-
-  const yearIndex = buah10mgColumnIndex(buah10mgHeaders, "Tahun");
-  const pgIndex = buah10mgColumnIndex(buah10mgHeaders, "PG");
-
-  function updateOptions(select, values) {
-    if (!select) return;
-
-    const selected = select.value || "all";
-    select.innerHTML = '<option value="all">Semua</option>';
-
-    [...values]
-      .filter(value => String(value).trim() !== "")
-      .sort((a, b) => String(a).localeCompare(String(b), "id"))
-      .forEach(value => {
-        const option = document.createElement("option");
-        option.value = String(value);
-        option.textContent = String(value);
-        select.appendChild(option);
-      });
-
-    select.value = [...select.options].some(o => o.value === selected)
-      ? selected
-      : "all";
-  }
-
-  const years = new Set();
-  const pgs = new Set();
-
-  buah10mgRows.forEach(row => {
-    if (yearIndex >= 0) years.add(String(row.values[yearIndex] ?? "").trim());
-    if (pgIndex >= 0) pgs.add(String(row.values[pgIndex] ?? "").trim());
-  });
-
-  updateOptions(yearFilter, years);
-  updateOptions(regionFilter, pgs);
+  renderBuahProgressChart();
 }
 
 
-function renderBuah10mg() {
-  const body = document.getElementById("dataTableBody");
-  const head = document.getElementById("buah10mgTableHead")
-    || document.querySelector("#dataTable thead tr")
-    || document.querySelector("table thead tr");
-
-  if (!body) return;
-
-  const isPetugas = staff();
-
-  if (head) {
-    head.innerHTML = buah10mgHeaders.map(header =>
-      `<th>${esc(String(header ?? ""))}</th>`
-    ).join("");
-
-    if (isPetugas) {
-      head.insertAdjacentHTML("beforeend", "<th>Aksi</th>");
-    }
-  }
-
-  const yearIndex = buah10mgColumnIndex(buah10mgHeaders, "Tahun");
-  const pgIndex = buah10mgColumnIndex(buah10mgHeaders, "PG");
-  const selectedYear = document.getElementById("yearFilter")?.value || "all";
-  const selectedPG = document.getElementById("regionFilter")?.value || "all";
-
-  const filtered = buah10mgRows.filter(row => {
-    const year = yearIndex >= 0
-      ? String(row.values[yearIndex] ?? "").trim()
-      : "";
-    const pg = pgIndex >= 0
-      ? String(row.values[pgIndex] ?? "").trim()
-      : "";
-
-    return (selectedYear === "all" || year === selectedYear)
-      && (selectedPG === "all" || pg === selectedPG);
-  });
-
-  const colspan = buah10mgHeaders.length + (isPetugas ? 1 : 0);
-
-  if (!buah10mgHeaders.length) {
-    body.innerHTML = `
-      <tr>
-        <td colspan="${colspan}">
-          Belum ada data. Petugas dapat mengunggah file Excel.
-        </td>
-      </tr>`;
-  } else if (!filtered.length) {
-    body.innerHTML = `
-      <tr>
-        <td colspan="${colspan}"
-          style="text-align:center;padding:24px">
-          Tidak ada data untuk filter yang dipilih.
-        </td>
-      </tr>`;
-  } else {
-    body.innerHTML = filtered.map(row => {
-      const cells = buah10mgHeaders.map((_, index) =>
-        `<td>${esc(String(row.values[index] ?? ""))}</td>`
-      ).join("");
-
-      const actions = isPetugas ? `
-        <td class="buah10mg-actions">
-          <button type="button" class="icon-btn edit-btn"
-            data-buah-edit="${Number(row.id)}">✏️ Edit</button>
-          <button type="button" class="icon-btn delete-btn"
-            data-buah-delete="${Number(row.id)}">🗑️ Hapus</button>
-        </td>` : "";
-
-      return `<tr>${cells}${actions}</tr>`;
-    }).join("");
-  }
-
-  const recordCount = document.getElementById("recordCount");
-  if (recordCount) recordCount.textContent = filtered.length;
-
-  document.getElementById("actionHead")?.classList.toggle("hidden", !isPetugas);
-
-  body.querySelectorAll("[data-buah-edit]").forEach(button => {
-    button.onclick = () => editBuah10mgRow(Number(button.dataset.buahEdit));
-  });
-
-  body.querySelectorAll("[data-buah-delete]").forEach(button => {
-    button.onclick = () => deleteBuah10mgRow(Number(button.dataset.buahDelete));
-  });
-}
-
-
-function renderBuah10mg() {
-  const body = document.getElementById("dataTableBody");
-  const head = document.getElementById("buah10mgTableHead")
-    || document.querySelector("#dataTable thead tr")
-    || document.querySelector("table thead tr");
-
-  if (!body) return;
-
-  const isPetugas = staff();
-
-  if (head) {
-    head.innerHTML = buah10mgHeaders.map(header =>
-      `<th>${esc(String(header ?? ""))}</th>`
-    ).join("");
-
-    if (isPetugas) {
-      head.insertAdjacentHTML("beforeend", "<th>Aksi</th>");
-    }
-  }
-
-  const yearIndex = buah10mgColumnIndex(buah10mgHeaders, "Tahun");
-  const pgIndex = buah10mgColumnIndex(buah10mgHeaders, "PG");
-  const selectedYear = document.getElementById("yearFilter")?.value || "all";
-  const selectedPG = document.getElementById("regionFilter")?.value || "all";
-
-  const filtered = buah10mgRows.filter(row => {
-    const year = yearIndex >= 0
-      ? String(row.values[yearIndex] ?? "").trim()
-      : "";
-    const pg = pgIndex >= 0
-      ? String(row.values[pgIndex] ?? "").trim()
-      : "";
-
-    return (selectedYear === "all" || year === selectedYear)
-      && (selectedPG === "all" || pg === selectedPG);
-  });
-
-  const colspan = buah10mgHeaders.length + (isPetugas ? 1 : 0);
-
-  if (!buah10mgHeaders.length) {
-    body.innerHTML = `
-      <tr>
-        <td colspan="${colspan}">
-          Belum ada data. Petugas dapat mengunggah file Excel.
-        </td>
-      </tr>`;
-  } else if (!filtered.length) {
-    body.innerHTML = `
-      <tr>
-        <td colspan="${colspan}"
-          style="text-align:center;padding:24px">
-          Tidak ada data untuk filter yang dipilih.
-        </td>
-      </tr>`;
-  } else {
-    body.innerHTML = filtered.map(row => {
-      const cells = buah10mgHeaders.map((_, index) =>
-        `<td>${esc(String(row.values[index] ?? ""))}</td>`
-      ).join("");
-
-      const actions = isPetugas ? `
-        <td class="buah10mg-actions">
-          <button type="button" class="icon-btn edit-btn"
-            data-buah-edit="${Number(row.id)}">✏️ Edit</button>
-          <button type="button" class="icon-btn delete-btn"
-            data-buah-delete="${Number(row.id)}">🗑️ Hapus</button>
-        </td>` : "";
-
-      return `<tr>${cells}${actions}</tr>`;
-    }).join("");
-  }
-
-  const recordCount = document.getElementById("recordCount");
-  if (recordCount) recordCount.textContent = filtered.length;
-
-  document.getElementById("actionHead")?.classList.toggle("hidden", !isPetugas);
-
-  body.querySelectorAll("[data-buah-edit]").forEach(button => {
-    button.onclick = () => editBuah10mgRow(Number(button.dataset.buahEdit));
-  });
-
-  body.querySelectorAll("[data-buah-delete]").forEach(button => {
-    button.onclick = () => deleteBuah10mgRow(Number(button.dataset.buahDelete));
-  });
-}
 
 /* =========================================
    BUAH 10 MG - UPLOAD EXCEL
@@ -2525,49 +2314,238 @@ async function importBuah10mg(file) {
   }
 }
 
+// =========================================
+// BUAH 10 MG - CASCADING FILTERS & RENDER
+// =========================================
+
+function updateBuah10mgCascadingFilters() {
+  const yearSelect = document.getElementById("yearFilter");
+  const pgSelect = document.getElementById("regionFilter");
+  const wilayahSelect = document.getElementById("buahWilayahFilter");
+  const lokasiSelect = document.getElementById("buahLokasiFilter");
+  const weekSelect = document.getElementById("buahWeekFilter");
+
+  if (!wilayahSelect || !lokasiSelect || !weekSelect) return;
+
+  const selectedYear = yearSelect?.value || "all";
+  const selectedPG = pgSelect?.value || "all";
+
+  const oldWilayah = wilayahSelect.value || "all";
+  const oldLokasi = lokasiSelect.value || "all";
+  const oldWeek = weekSelect.value || "all";
+
+  // Indeks kolom berdasarkan header Buah 10 MG
+  // (Pastikan urutan indeks ini sesuai dengan kolom di Excel kamu:
+  // Tahun = misal index 4/5, PG = misal index 8, Wilayah = index 6, Lokasi = index 9, Week = index 2)
+  // Kita gunakan pencarian dinamis berdasarkan nama header agar aman:
+  const yearIdx = buah10mgColumnIndex(buah10mgHeaders, "Tahun");
+  const pgIdx = buah10mgColumnIndex(buah10mgHeaders, "PG");
+  const wilayahIdx = buah10mgColumnIndex(buah10mgHeaders, "Wilayah");
+  const lokasiIdx = buah10mgColumnIndex(buah10mgHeaders, "Lokasi");
+  const weekIdx = buah10mgColumnIndex(buah10mgHeaders, "Week Aktual") >= 0 
+    ? buah10mgColumnIndex(buah10mgHeaders, "Week Aktual") 
+    : buah10mgColumnIndex(buah10mgHeaders, "Week");
+
+  const val = (row, idx) => idx >= 0 ? String(row.values?.[idx] ?? "").trim() : "";
+
+  // 1. Filter data berdasarkan Tahun & PG (Filter Utama)
+  const baseRows = buah10mgRows.filter(row => {
+    const yVal = val(row, yearIdx);
+    const pgVal = val(row, pgIdx);
+
+    const matchYear = selectedYear === "all" || yVal === selectedYear;
+    const matchPG = selectedPG === "all" || pgVal === selectedPG;
+    return matchYear && matchPG;
+  });
+
+  // 2. Populate Wilayah berdasarkan Tahun & PG
+  const wilayahs = [...new Set(baseRows.map(r => val(r, wilayahIdx)).filter(Boolean))].sort();
+  wilayahSelect.innerHTML = '<option value="all">Semua Wilayah</option>' +
+    wilayahs.map(w => `<option value="${esc(w)}">${esc(w)}</option>`).join("");
+  wilayahSelect.value = wilayahs.includes(oldWilayah) ? oldWilayah : "all";
+  const currentWilayah = wilayahSelect.value;
+
+  // 3. Populate Lokasi berdasarkan Wilayah
+  const wilayahRows = baseRows.filter(row => {
+    return currentWilayah === "all" || val(row, wilayahIdx) === currentWilayah;
+  });
+  const lokasis = [...new Set(wilayahRows.map(r => val(r, lokasiIdx)).filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
+  lokasiSelect.innerHTML = '<option value="all">Semua Lokasi</option>' +
+    lokasis.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join("");
+  lokasiSelect.value = lokasis.includes(oldLokasi) ? oldLokasi : "all";
+  const currentLokasi = lokasiSelect.value;
+
+  // 4. Populate Week berdasarkan Lokasi
+  const lokasiRows = wilayahRows.filter(row => {
+    return currentLokasi === "all" || val(row, lokasiIdx) === currentLokasi;
+  });
+  const weeks = [...new Set(lokasiRows.map(r => val(r, weekIdx)).filter(Boolean))].sort((a,b) => {
+    const na = parseInt(a.replace(/\D/g, ""), 10);
+    const nb = parseInt(b.replace(/\D/g, ""), 10);
+    return (isNaN(na) || isNaN(nb)) ? a.localeCompare(b) : na - nb;
+  });
+  weekSelect.innerHTML = '<option value="all">Semua Week</option>' +
+    weeks.map(wk => `<option value="${esc(wk)}">${esc(wk)}</option>`).join("");
+  weekSelect.value = weeks.includes(oldWeek) ? oldWeek : "all";
+}
+
+function renderBuah10mg() {
+  const body = document.getElementById("dataTableBody");
+  const head = document.getElementById("buah10mgTableHead")
+    || document.querySelector("#dataTable thead tr")
+    || document.querySelector("table thead tr");
+
+  if (!body) return;
+
+  const isPetugas = staff();
+
+  if (head) {
+    head.innerHTML = buah10mgHeaders.map(header =>
+      `<th>${esc(String(header ?? ""))}</th>`
+    ).join("");
+
+    if (isPetugas) {
+      head.insertAdjacentHTML("beforeend", "<th>Aksi</th>");
+    }
+  }
+
+  // Ambil semua nilai filter
+  const selectedYear = document.getElementById("yearFilter")?.value || "all";
+  const selectedPG = document.getElementById("regionFilter")?.value || "all";
+  const selectedWilayah = document.getElementById("buahWilayahFilter")?.value || "all";
+  const selectedLokasi = document.getElementById("buahLokasiFilter")?.value || "all";
+  const selectedWeek = document.getElementById("buahWeekFilter")?.value || "all";
+
+  const yearIndex = buah10mgColumnIndex(buah10mgHeaders, "Tahun");
+  const pgIndex = buah10mgColumnIndex(buah10mgHeaders, "PG");
+  const wilayahIndex = buah10mgColumnIndex(buah10mgHeaders, "Wilayah");
+  const lokasiIndex = buah10mgColumnIndex(buah10mgHeaders, "Lokasi");
+  const weekIndex = buah10mgColumnIndex(buah10mgHeaders, "Week Aktual") >= 0 
+    ? buah10mgColumnIndex(buah10mgHeaders, "Week Aktual") 
+    : buah10mgColumnIndex(buah10mgHeaders, "Week");
+
+  const filtered = buah10mgRows.filter(row => {
+    const v = row.values || [];
+    const year = yearIndex >= 0 ? String(v[yearIndex] ?? "").trim() : "";
+    const pg = pgIndex >= 0 ? String(v[pgIndex] ?? "").trim() : "";
+    const wilayah = wilayahIndex >= 0 ? String(v[wilayahIndex] ?? "").trim() : "";
+    const lokasi = lokasiIndex >= 0 ? String(v[lokasiIndex] ?? "").trim() : "";
+    const week = weekIndex >= 0 ? String(v[weekIndex] ?? "").trim() : "";
+
+    return (selectedYear === "all" || year === selectedYear) &&
+           (selectedPG === "all" || pg === selectedPG) &&
+           (selectedWilayah === "all" || wilayah === selectedWilayah) &&
+           (selectedLokasi === "all" || lokasi === selectedLokasi) &&
+           (selectedWeek === "all" || week === selectedWeek);
+  });
+
+  const colspan = buah10mgHeaders.length + (isPetugas ? 1 : 0);
+
+  if (!buah10mgHeaders.length) {
+    body.innerHTML = `<tr><td colspan="${colspan}">Belum ada data. Petugas dapat mengunggah file Excel.</td></tr>`;
+  } else if (!filtered.length) {
+    body.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;padding:24px">Tidak ada data untuk filter yang dipilih.</td></tr>`;
+  } else {
+    body.innerHTML = filtered.map(row => {
+      const cells = buah10mgHeaders.map((_, index) =>
+        `<td>${esc(String(row.values[index] ?? ""))}</td>`
+      ).join("");
+
+      const actions = isPetugas ? `
+        <td class="buah10mg-actions">
+          <button type="button" class="icon-btn edit-btn" data-buah-edit="${Number(row.id)}">✏️ Edit</button>
+          <button type="button" class="icon-btn delete-btn" data-buah-delete="${Number(row.id)}">🗑️ Hapus</button>
+        </td>` : "";
+
+      return `<tr>${cells}${actions}</tr>`;
+    }).join("");
+  }
+
+  const recordCount = document.getElementById("recordCount");
+  if (recordCount) recordCount.textContent = filtered.length;
+
+  document.getElementById("actionHead")?.classList.toggle("hidden", !isPetugas);
+
+  body.querySelectorAll("[data-buah-edit]").forEach(button => {
+    button.onclick = () => editBuah10mgRow(Number(button.dataset.buahEdit));
+  });
+
+  body.querySelectorAll("[data-buah-delete]").forEach(button => {
+    button.onclick = () => deleteBuah10mgRow(Number(button.dataset.buahDelete));
+  });
+}
+
 async function setupBuah10mg() {
   const body = document.getElementById("dataTableBody");
   if (!body) return;
 
-  document.getElementById("yearFilter")
-    ?.addEventListener("change", renderBuah10mg);
+  // Event listener untuk Filter Utama (Tahun & PG)
+  document.getElementById("yearFilter")?.addEventListener("change", () => {
+    updateBuah10mgCascadingFilters();
+    renderBuah10mg();
+    renderBuahProgressChart();
+  });
 
-  document.getElementById("regionFilter")
-    ?.addEventListener("change", renderBuah10mg);
+  document.getElementById("regionFilter")?.addEventListener("change", () => {
+    updateBuah10mgCascadingFilters();
+    renderBuah10mg();
+    renderBuahProgressChart();
+  });
 
-  document.getElementById("resetFilters")
-    ?.addEventListener("click", () => {
-      const year = document.getElementById("yearFilter");
-      const pg = document.getElementById("regionFilter");
-
-      if (year) year.value = "all";
-      if (pg) pg.value = "all";
-
+  // Event listener untuk Filter Turunan Tabel (Wilayah, Lokasi, Week)
+  ["buahWilayahFilter", "buahLokasiFilter", "buahWeekFilter"].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", () => {
+      updateBuah10mgCascadingFilters();
       renderBuah10mg();
     });
+  });
 
-  document.getElementById("uploadExcelBtn")
-    ?.addEventListener("click", () => {
-      if (!staff()) {
-        openLogin();
-        return;
-      }
+  // Tombol Reset Filter Utama (Tahun & PG)
+  document.getElementById("resetFilters")?.addEventListener("click", () => {
+    const year = document.getElementById("yearFilter");
+    const pg = document.getElementById("regionFilter");
 
-      document.getElementById("excelFileInput")?.click();
-    });
+    if (year) year.value = "all";
+    if (pg) pg.value = "all";
 
-  document.getElementById("excelFileInput")
-    ?.addEventListener("change", async event => {
-      const file = event.target.files?.[0];
+    updateBuah10mgCascadingFilters();
+    renderBuah10mg();
+  });
 
-      try {
-        await importBuah10mg(file);
-      } finally {
-        event.target.value = "";
-      }
-    });
+  // Tombol Reset Filter Khusus Tabel (Wilayah, Lokasi, Week)
+  document.getElementById("buahTableReset")?.addEventListener("click", () => {
+    const wilayah = document.getElementById("buahWilayahFilter");
+    const lokasi = document.getElementById("buahLokasiFilter");
+    const week = document.getElementById("buahWeekFilter");
 
-  loadBuah10mgFromSupabase();
+    if (wilayah) wilayah.value = "all";
+    if (lokasi) lokasi.value = "all";
+    if (week) week.value = "all";
+
+    renderBuah10mg();
+  });
+
+  document.getElementById("uploadExcelBtn")?.addEventListener("click", () => {
+    if (!staff()) {
+      openLogin();
+      return;
+    }
+    document.getElementById("excelFileInput")?.click();
+  });
+
+  document.getElementById("excelFileInput")?.addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    try {
+      await importBuah10mg(file);
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  await loadBuah10mgFromSupabase();
+  updateBuah10mgCascadingFilters();
+  renderBuah10mg();
+  renderBuahProgressChart();
 
   
   // =====================================================
@@ -2676,6 +2654,161 @@ async function setupBuah10mg() {
   // Tampilkan dokumentasi ketika halaman dibuka
   await loadBuahDocumentation(documentationSearch?.value || "");
 
+}
+
+
+let buahChartInstances = {};
+
+function renderBuahProgressChart() {
+  const selectedYear = document.getElementById("yearFilter")?.value || "all";
+  const selectedPG = document.getElementById("regionFilter")?.value || "all";
+
+  // Gunakan pencarian dinamis berbasis header agar aman dari pergeseran kolom
+  const yearIdx = buah10mgColumnIndex(buah10mgHeaders, "Tahun");
+  const pgIdx = buah10mgColumnIndex(buah10mgHeaders, "PG");
+  const weekIdx = buah10mgColumnIndex(buah10mgHeaders, "Week Aktual") >= 0 
+    ? buah10mgColumnIndex(buah10mgHeaders, "Week Aktual") 
+    : buah10mgColumnIndex(buah10mgHeaders, "Week");
+
+  const pembagiIdx = buah10mgHeaders.findIndex(h => h.toLowerCase().includes("jumlah hand") || h.toLowerCase().includes("total hand"));
+  const pembilangIdx = buah10mgHeaders.findIndex(h => h.toLowerCase().includes("hand bersih"));
+
+  const pgList = ["PG1", "PG2", "PG3", "PG4"];
+  const gridContainer = document.getElementById("buahChartGrid");
+  const emptyMessage = document.getElementById("buahChartEmpty");
+
+  const totalFilteredRows = buah10mgRows.filter(row => {
+    const v = row.values || [];
+    const yVal = yearIdx >= 0 ? String(v[yearIdx] ?? "").trim() : "";
+    const pgVal = pgIdx >= 0 ? String(v[pgIdx] ?? "").trim() : "";
+
+    const matchYear = selectedYear === "all" || yVal === selectedYear;
+    const matchPG = selectedPG === "all" || pgVal === selectedPG;
+    return matchYear && matchPG;
+  });
+
+  if (totalFilteredRows.length === 0) {
+    if (gridContainer) gridContainer.style.display = "none";
+    if (emptyMessage) emptyMessage.classList.remove("hidden");
+    return;
+  } else {
+    if (gridContainer) gridContainer.style.display = "grid";
+    if (emptyMessage) emptyMessage.classList.add("hidden");
+  }
+
+  if (selectedPG === "all") {
+    if (gridContainer) gridContainer.style.gridTemplateColumns = "repeat(2, minmax(0, 1fr))";
+    pgList.forEach(pg => {
+      const card = document.getElementById(`cardChart${pg}`);
+      if (card) card.style.display = "block";
+    });
+  } else {
+    if (gridContainer) gridContainer.style.gridTemplateColumns = "1fr";
+    pgList.forEach(pg => {
+      const card = document.getElementById(`cardChart${pg}`);
+      if (card) {
+        card.style.display = (pg === selectedPG) ? "block" : "none";
+      }
+    });
+  }
+
+  pgList.forEach(pgName => {
+    if (selectedPG !== "all" && selectedPG !== pgName) return;
+
+    const canvasId = `buahProgressChart${pgName}`;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const filteredRows = buah10mgRows.filter(row => {
+      const v = row.values || [];
+      const yVal = yearIdx >= 0 ? String(v[yearIdx] ?? "").trim() : "";
+      const pgVal = pgIdx >= 0 ? String(v[pgIdx] ?? "").trim() : "";
+
+      const matchYear = selectedYear === "all" || yVal === selectedYear;
+      const matchPG = pgVal === pgName;
+      return matchYear && matchPG;
+    });
+
+    const weekDataMap = {};
+    filteredRows.forEach(row => {
+      const v = row.values || [];
+      const week = weekIdx >= 0 ? String(v[weekIdx] ?? "").trim() : "";
+      if (!week) return;
+
+      const handBersih = pembilangIdx >= 0 ? (parseFloat(String(v[pembilangIdx] ?? "0").replace(",", ".")) || 0) : 0;
+      const jumlahHand = pembagiIdx >= 0 ? (parseFloat(String(v[pembagiIdx] ?? "0").replace(",", ".")) || 0) : 0;
+
+      if (!weekDataMap[week]) {
+        weekDataMap[week] = { sumHand: 0, sumTotal: 0 };
+      }
+      weekDataMap[week].sumHand += handBersih;
+      weekDataMap[week].sumTotal += jumlahHand;
+    });
+
+    const sortedWeeks = Object.keys(weekDataMap).sort((a, b) => {
+      const na = parseInt(a.replace(/\D/g, ""), 10);
+      const nb = parseInt(b.replace(/\D/g, ""), 10);
+      return (isNaN(na) || isNaN(nb)) ? a.localeCompare(b) : na - nb;
+    });
+
+    const last5Weeks = sortedWeeks.slice(-5);
+    const dataValues = last5Weeks.map(wk => {
+      const item = weekDataMap[wk];
+      if (!item || item.sumTotal === 0) return 0;
+      return Number(((item.sumHand / item.sumTotal) * 100).toFixed(1));
+    });
+
+    if (buahChartInstances[pgName]) {
+      buahChartInstances[pgName].destroy();
+    }
+
+    buahChartInstances[pgName] = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: last5Weeks,
+        datasets: [{
+          label: `Hand Bersih ${pgName}`,
+          data: dataValues,
+          borderColor: '#185a39',
+          backgroundColor: 'rgba(24, 90, 57, 0.1)',
+          borderWidth: 2,
+          pointBackgroundColor: '#185a39',
+          pointRadius: 3,
+          tension: 0.1,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            display: true,
+            align: 'top',
+            formatter: (value) => value + '%',
+            font: { size: 10, weight: 'bold' },
+            color: '#183026'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => ` Hand bersih: ${context.parsed.y}%`
+            }
+          }
+        },
+        scales: {
+          y: {
+            min: 0,
+            max: 100,
+            ticks: { callback: (value) => value + '%' },
+            grid: { color: '#edf1ee' }
+          },
+          x: { grid: { display: false } }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  });
 }
 
 function bibitFormValue(id) {

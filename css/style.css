@@ -2297,3 +2297,29 @@ select {
     height: 280px;
   }
 }
+
+/* ==========================================================================
+   PERBAIKAN & PENYEMPURNAAN HEADER TABEL (AGAR LEBIH RAPI)
+   ========================================================================== */
+
+.data-table th {
+  background: var(--g9);
+  color: var(--white);
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 14px 12px;         /* Memperluas ruang atas-bawah dan samping */
+  line-height: 1.35;          /* Mengatur jarak antar baris teks pada header panjang */
+  vertical-align: middle;     /* Menyelaraskan posisi teks di tengah secara vertikal */
+  white-space: normal;        /* Membolehkan teks turun ke baris baru dengan rapi */
+  word-break: break-word;     /* Mencegah teks panjang keluar dari kolom */
+  min-width: 100px;           /* Lebar minimum kolom agar judul tidak terlalu terhimpit */
+}
+
+/* Memastikan header yang menempel di atas (sticky) tetap terlihat rapi */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--g9);
+}

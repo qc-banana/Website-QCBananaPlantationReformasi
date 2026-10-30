@@ -63,6 +63,7 @@
       </div>
     </section>
 
+    <!-- FILTER UTAMA (UNTUK TAHUN & PG) -->
     <section class="filter-bar">
       <div class="filter-group">
         <label for="yearFilter">📅 TAHUN</label>
@@ -76,9 +77,9 @@
         </select>
       </div>
       <div class="filter-group">
-        <label for="regionFilter">📍 WILAYAH / PG</label>
+        <label for="regionFilter">📍 PG</label>
         <select id="regionFilter">
-          <option value="all">Semua Wilayah</option>
+          <option value="all">Semua PG</option>
           <option value="PG1">PG1</option>
           <option value="PG2">PG2</option>
           <option value="PG3">PG3</option>
@@ -88,11 +89,88 @@
       <button id="resetFilters" class="btn filter-reset">↻ Reset Filter</button>
     </section>
 
+    <!-- 4 GRAFIK PROGRESS KEBERSIHAN BUAH (PG1 - PG4) -->
+    <section class="panel" style="margin-bottom: 24px;">
+      <div class="panel-header chart-header">
+        <div>
+          <span class="eyebrow">VISUALISASI PROGRESS</span>
+          <h2>Progress Kebersihan Buah 10 MG per PG</h2>
+          <p>Menampilkan grafik perbandingan persentase "Hand Bersih" 5 week terakhir untuk masing-masing PG.</p>
+        </div>
+      </div>
+      
+      <!-- Pesan Kosong Jika Tidak Ada Data -->
+      <div id="buahChartEmpty" class="hidden" style="text-align: center; padding: 40px; color: var(--g6); background: #fafafa; border-radius: 12px; margin-top: 16px; border: 1px dashed var(--border);">
+        Belum ada data untuk filter yang dipilih.
+      </div>
+
+      <!-- Grid 4 Grafik -->
+      <div id="buahChartGrid" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 16px;">
+        
+        <div id="cardChartPG1" style="background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 16px;">
+          <h3 style="font-size: 16px; color: var(--g9); margin-bottom: 10px;">PG1</h3>
+          <div style="position: relative; width: 100%; height: 260px;">
+            <canvas id="buahProgressChartPG1"></canvas>
+          </div>
+        </div>
+
+        <div id="cardChartPG2" style="background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 16px;">
+          <h3 style="font-size: 16px; color: var(--g9); margin-bottom: 10px;">PG2</h3>
+          <div style="position: relative; width: 100%; height: 260px;">
+            <canvas id="buahProgressChartPG2"></canvas>
+          </div>
+        </div>
+
+        <div id="cardChartPG3" style="background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 16px;">
+          <h3 style="font-size: 16px; color: var(--g9); margin-bottom: 10px;">PG3</h3>
+          <div style="position: relative; width: 100%; height: 260px;">
+            <canvas id="buahProgressChartPG3"></canvas>
+          </div>
+        </div>
+
+        <div id="cardChartPG4" style="background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 16px;">
+          <h3 style="font-size: 16px; color: var(--g9); margin-bottom: 10px;">PG4</h3>
+          <div style="position: relative; width: 100%; height: 260px;">
+            <canvas id="buahProgressChartPG4"></canvas>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PANEL TABEL & FILTER KHUSUS TABEL DI DALAMNYA -->
     <section class="table-panel">
       <div class="table-toolbar">
-        <div class="table-note">Filter diterapkan pada tabel. Petugas juga dapat Upload Excel/CSV atau Edit data.</div>
+        <div>
+          <h3 style="font-size: 16px; margin-bottom: 4px; color: var(--g9);">Data Pengamatan Buah 10 MG</h3>
+          <div class="table-note">Filter di bawah ini <b>hanya memengaruhi tabel</b>.</div>
+        </div>
         <div class="table-note"><b id="recordCount">0</b> data tampil</div>
       </div>
+
+      <!-- FILTER KHUSUS TABEL (WILAYAH, LOKASI, WEEK) -->
+      <div class="filter-bar" style="margin: 16px; box-shadow: none; border: 1px solid var(--border);">
+        <div class="filter-group">
+          <label for="buahWilayahFilter">🗺️ WILAYAH</label>
+          <select id="buahWilayahFilter">
+            <option value="all">Semua Wilayah</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="buahLokasiFilter">📌 LOKASI</label>
+          <select id="buahLokasiFilter">
+            <option value="all">Semua Lokasi</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="buahWeekFilter">📆 WEEK</label>
+          <select id="buahWeekFilter">
+            <option value="all">Semua Week</option>
+          </select>
+        </div>
+        <button id="buahTableReset" class="btn filter-reset">↻ Reset Filter</button>
+      </div>
+
       <div class="table-wrap">
         <table class="data-table">
           <thead>
@@ -103,48 +181,47 @@
       </div>
     </section>
 
-    
-<!-- DOKUMENTASI BUAH -->
-<div class="buah-documentation">
-  <div class="documentation-header">
-    <div>
-      <h3>Dokumentasi Buah</h3>
-      <p>Kumpulan dokumentasi kegiatan QC Buah.</p>
+    <!-- DOKUMENTASI BUAH -->
+    <div class="buah-documentation">
+      <div class="documentation-header">
+        <div>
+          <h3>Dokumentasi Buah</h3>
+          <p>Kumpulan dokumentasi kegiatan QC Buah.</p>
+        </div>
+
+        <button
+          type="button"
+          id="buahDocumentationUploadBtn"
+          class="primary-btn">
+          📷 Upload Foto
+        </button>
+
+        <input
+          type="file"
+          id="buahDocumentationInput"
+          accept="image/*"
+          multiple
+          hidden>
+      </div>
+
+      <div id="buahDocumentationInfo" class="documentation-info">
+        Dokumentasi kegiatan QC Buah.
+      </div>
+
+      <div class="documentation-search">
+        <input
+          type="text"
+          id="buahDocumentationSearch"
+          placeholder="🔎 Cari dokumentasi berdasarkan keterangan..."
+          autocomplete="off">
+      </div>
+
+      <div id="buahDocumentationGrid" class="documentation-grid">
+        <div class="documentation-empty">
+          Memuat dokumentasi...
+        </div>
+      </div>
     </div>
-
-    <button
-      type="button"
-      id="buahDocumentationUploadBtn"
-      class="primary-btn">
-      📷 Upload Foto
-    </button>
-
-    <input
-      type="file"
-      id="buahDocumentationInput"
-      accept="image/*"
-      multiple
-      hidden>
-  </div>
-
-  <div id="buahDocumentationInfo" class="documentation-info">
-    Dokumentasi kegiatan QC Buah.
-  </div>
-
-  <div class="documentation-search">
-    <input
-      type="text"
-      id="buahDocumentationSearch"
-      placeholder="🔎 Cari dokumentasi berdasarkan keterangan..."
-      autocomplete="off">
-  </div>
-
-  <div id="buahDocumentationGrid" class="documentation-grid">
-    <div class="documentation-empty">
-      Memuat dokumentasi...
-    </div>
-  </div>
-</div>
 
     <footer class="footer">
     QC Banana Plantation • Quality Control Data
@@ -213,14 +290,11 @@
     </div>
   </div>
 
-  
-<!-- Library Supabase: harus dimuat sebelum script.js -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<!-- Library untuk membaca Excel -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-<!-- Script utama website -->
-<script src="../js/script.js"></script>
+  <!-- Library Supabase & Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="../js/script.js"></script>
 </body>
 </html>
