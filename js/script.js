@@ -4319,66 +4319,46 @@ async function getBIFromSupabase() {
 
 
 document.addEventListener("DOMContentLoaded", async () => {
-
   setupSidebar();
   setupAuth();
   updateUI();
 
   if (pageKey() === "bibit") {
-
     setupBibit();
-
   } else if (pageKey() === "propping") {
-
     setupPropping();
-
   } else if (pageKey() === "agronomi") {
-
     setupAgronomi();
-
   } else if (pageKey() === "buah") {
-
     setupBuah10mg();
-
   } else if (pageKey() === "bud") {
-
     setupBI();
-
   } else {
-
     setupGeneric();
-
   }
 
-  // Tunggu dashboard selesai mengambil data Bibit
   await dashboard();
 
   if (document.getElementById("dashboardBICharts")) {
-  await renderDashboardBICharts();
-}
+    await renderDashboardBICharts();
+  }
 
-  // Grafik Agronomi Dashboard
   if (document.getElementById("dashboardAgronomiChartGrid")) {
     await renderDashboardAgronomi();
   }
 
-  // Setelah dashboard selesai,
-  // jalankan grafik Propping Dashboard
   if (document.getElementById("dashboardProppingCharts")) {
-
     if (typeof window.renderDashboardPropping === "function") {
-
       await window.renderDashboardPropping();
-
-    } else {
-
-      console.warn("⚠️ renderDashboardPropping belum tersedia.");
-
     }
-
   }
 
+  // Panggil grafik Buah 10 MG Dashboard
+  if (document.getElementById("dashboardBuahChartGrid")) {
+    await renderDashboardBuah();
+  }
 });
+
 async function importPropping(file) {
   if (!file) return;
 
@@ -11080,3 +11060,309 @@ async function renderDashboardBICharts() {
   );
 }
 
+// =========================================================
+// AMBIL DATA BUAH 10 MG DARI SUPABASE (UNTUK DASHBOARD)
+// =========================================================
+async function getBuah10mgFromSupabase() {
+  if (!qcSupabase) return [];
+
+  const allRows = [];
+  const pageSize = 1000;
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await qcSupabase
+      .from("buah_10mg_data")
+      .select("id,row_data,headers")
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error("Gagal mengambil data Buah 10 MG:", error);
+      return [];
+    }
+
+    allRows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  const headers = allRows[0]?.headers || [];
+  return allRows.map(item => ({
+    id: item.id,
+    headers: headers,
+    values: Array.isArray(item.row_data) ? item.row_data : []
+  }));
+}
+
+let dashboardBuahChartInstances = {};
+
+async function renderDashboardBuah() {
+  const container = document.getElementById("dashboardBuahChartGrid");
+  if (!container) return;
+
+  const rows = await getBuah10mgFromSupabase();
+  if (!rows.length) {
+    container.innerHTML = '<div class="chart-empty" style="grid-column: 1 / -1; text-align: center; padding: 30px;">Belum ada data Buah 10 MG.</div>';
+    return;
+  }
+
+  const sampleHeaders = rows[0].headers || [];
+  const yearIdx = buah10mgColumnIndex(sampleHeaders, "Tahun");
+  const pgIdx = buah10mgColumnIndex(sampleHeaders, "PG");
+  const weekIdx = buah10mgColumnIndex(sampleHeaders, "Week Aktual") >= 0 
+    ? buah10mgColumnIndex(sampleHeaders, "Week Aktual") 
+    : buah10mgColumnIndex(sampleHeaders, "Week");
+
+  const pembagiIdx = sampleHeaders.findIndex(h => h.toLowerCase().includes("jumlah hand") || h.toLowerCase().includes("total hand"));
+  const pembilangIdx = sampleHeaders.findIndex(h => h.toLowerCase().includes("hand bersih"));
+
+  // Cari Tahun Terbaru
+  const years = rows
+    .map(r => Number(r.values[yearIdx]))
+    .filter(y => Number.isFinite(y) && y > 0);
+
+  if (!years.length) return;
+  const latestYear = String(Math.max(...years));
+
+  const pgList = ["PG1", "PG2", "PG3", "PG4"];
+
+  pgList.forEach(pgName => {
+    const canvasId = `dashboardBuahChart${pgName}`;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const filteredRows = rows.filter(row => {
+      const v = row.values || [];
+      const yVal = yearIdx >= 0 ? String(v[yearIdx] ?? "").trim() : "";
+      const pgVal = pgIdx >= 0 ? String(v[pgIdx] ?? "").trim() : "";
+      return yVal === latestYear && pgVal === pgName;
+    });
+
+    const weekDataMap = {};
+    filteredRows.forEach(row => {
+      const v = row.values || [];
+      const week = weekIdx >= 0 ? String(v[weekIdx] ?? "").trim() : "";
+      if (!week) return;
+
+      const handBersih = pembilangIdx >= 0 ? (parseFloat(String(v[pembilangIdx] ?? "0").replace(",", ".")) || 0) : 0;
+      const jumlahHand = pembagiIdx >= 0 ? (parseFloat(String(v[pembagiIdx] ?? "0").replace(",", ".")) || 0) : 0;
+
+      if (!weekDataMap[week]) weekDataMap[week] = { sumHand: 0, sumTotal: 0 };
+      weekDataMap[week].sumHand += handBersih;
+      weekDataMap[week].sumTotal += jumlahHand;
+    });
+
+    const sortedWeeks = Object.keys(weekDataMap).sort((a, b) => {
+      const na = parseInt(a.replace(/\D/g, ""), 10);
+      const nb = parseInt(b.replace(/\D/g, ""), 10);
+      return (isNaN(na) || isNaN(nb)) ? a.localeCompare(b) : na - nb;
+    });
+
+    const last5Weeks = sortedWeeks.slice(-5);
+    const dataValues = last5Weeks.map(wk => {
+      const item = weekDataMap[wk];
+      if (!item || item.sumTotal === 0) return 0;
+      return Number(((item.sumHand / item.sumTotal) * 100).toFixed(1));
+    });
+
+    if (dashboardBuahChartInstances[pgName]) {
+      dashboardBuahChartInstances[pgName].destroy();
+    }
+
+    dashboardBuahChartInstances[pgName] = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: last5Weeks,
+        datasets: [{
+          label: `Hand Bersih ${pgName}`,
+          data: dataValues,
+          borderColor: '#185a39',
+          backgroundColor: 'rgba(24, 90, 57, 0.1)',
+          borderWidth: 2,
+          pointBackgroundColor: '#185a39',
+          pointRadius: 3,
+          tension: 0.1,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            display: true,
+            align: 'top',
+            formatter: (val) => val + '%',
+            font: { size: 10, weight: 'bold' },
+            color: '#183026'
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` Hand bersih: ${ctx.parsed.y}%`
+            }
+          }
+        },
+        scales: {
+          y: {
+            min: 0,
+            max: 100,
+            ticks: { callback: (val) => val + '%' },
+            grid: { color: '#edf1ee' }
+          },
+          x: { grid: { display: false } }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  });
+}
+
+// =========================================
+// EDIT DATA BUAH 10 MG
+// =========================================
+async function editBuah10mgRow(id) {
+  if (!staff()) {
+    alert("Silakan login sebagai Petugas.");
+    return;
+  }
+
+  const row = buah10mgRows.find(item => Number(item.id) === Number(id));
+
+  if (!row) {
+    alert("Data Buah 10 MG tidak ditemukan.");
+    return;
+  }
+
+  const values = [...(row.values || [])];
+  const headers = buah10mgHeaders;
+
+  // Hapus modal edit lama jika ada
+  document.getElementById("buahEditModal")?.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "buahEditModal";
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(16, 37, 27, .48);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; font-family: Arial, sans-serif;
+  `;
+
+  modal.innerHTML = `
+    <div style="background: #fff; width: min(100%, 960px); max-height: 92vh; overflow-y: auto; border-radius: 20px; padding: 28px; box-sizing: border-box; box-shadow: 0 15px 50px rgba(0,0,0,.2);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px;">
+        <div>
+          <div style="background: #e8f5ed; padding: 13px; border-radius: 14px; font-size: 23px; display: inline-block; margin-bottom: 14px;">📝</div>
+          <h2 style="margin: 0 0 10px; color: #123e2b; font-size: 23px;">Edit Data Buah 10 MG</h2>
+          <p style="margin: 0; color: #718078; font-size: 13px;">Ubah data yang diperlukan, lalu simpan perubahan.</p>
+        </div>
+        <button type="button" id="closeBuahEditModal" style="border: 0; background: transparent; font-size: 26px; color: #718078; cursor: pointer;">&times;</button>
+      </div>
+
+      <form id="buahEditForm">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 12px; margin-bottom: 24px;">
+          ${headers.map((header, index) => {
+            const value = values[index] ?? "";
+            return `
+              <div>
+                <label style="display: block; margin-bottom: 6px; font-size: 12px; font-weight: 600; color: #42554a;">
+                  ${esc(String(header))}
+                </label>
+                <input
+                  name="field_${index}"
+                  type="text"
+                  value="${esc(String(value))}"
+                  data-index="${index}"
+                  style="width: 100%; height: 38px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbdcd0; border-radius: 8px; font-size: 13px; color: #304438;"
+                >
+              </div>
+            `;
+          }).join("")}
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" id="cancelBuahEditBtn" style="border: 0; border-radius: 9px; padding: 12px 18px; cursor: pointer; font-weight: 600; background: #edf1ee; color: #35473b;">Batal</button>
+          <button type="submit" style="border: 0; border-radius: 9px; padding: 12px 18px; cursor: pointer; font-weight: 600; background: #155b39; color: white;">💾 Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+  modal.querySelector("#closeBuahEditModal").onclick = closeModal;
+  modal.querySelector("#cancelBuahEditBtn").onclick = closeModal;
+  modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+  modal.querySelector("#buahEditForm").onsubmit = async event => {
+    event.preventDefault();
+
+    if (!staff()) {
+      alert("Sesi Petugas tidak aktif. Silakan login kembali.");
+      return;
+    }
+
+    const saveButton = modal.querySelector('button[type="submit"]');
+    const updatedValues = [...values];
+
+    modal.querySelectorAll("[data-index]").forEach(input => {
+      const index = Number(input.dataset.index);
+      updatedValues[index] = input.value;
+    });
+
+    saveButton.disabled = true;
+    saveButton.textContent = "Menyimpan...";
+
+    try {
+      const { error } = await qcSupabase
+        .from("buah_10mg_data")
+        .update({ row_data: updatedValues })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      await loadBuah10mgFromSupabase();
+      modal.remove();
+      alert("Data Buah 10 MG berhasil diperbarui.");
+    } catch (error) {
+      console.error("Gagal menyimpan Buah 10 MG:", error);
+      alert("Gagal menyimpan perubahan: " + error.message);
+      saveButton.disabled = false;
+      saveButton.textContent = "💾 Simpan Perubahan";
+    }
+  };
+}
+
+// =========================================
+// HAPUS DATA BUAH 10 MG
+// =========================================
+async function deleteBuah10mgRow(id) {
+  if (!staff()) {
+    alert("Silakan login sebagai Petugas.");
+    return;
+  }
+
+  const confirmed = confirm(
+    "Yakin ingin menghapus baris data Buah 10 MG ini?\nData yang dihapus tidak dapat dikembalikan."
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const { error } = await qcSupabase
+      .from("buah_10mg_data")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    await loadBuah10mgFromSupabase();
+    alert("Data Buah 10 MG berhasil dihapus.");
+  } catch (error) {
+    console.error("Gagal menghapus data Buah 10 MG:", error);
+    alert("Gagal menghapus data: " + error.message);
+  }
+}
