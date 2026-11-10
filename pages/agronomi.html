@@ -421,61 +421,48 @@
   </div>
 
 </section>
-<!-- =========================================
-     DOKUMENTASI AGRONOMI
-========================================== -->
-<div class="agronomi-documentation">
+<!-- DOKUMENTASI AGRONOMI -->
+    <div class="bibit-documentation">
+      <div class="documentation-header">
+        <div>
+          <h3>Dokumentasi Agronomi</h3>
+          <p>Kumpulan dokumentasi kegiatan QC Agronomi.</p>
+        </div>
 
-  <div class="documentation-header">
-    <div>
-      <h3>Dokumentasi Agronomi</h3>
-      <p>Kumpulan dokumentasi kegiatan Agronomi.</p>
+        <button
+          type="button"
+          id="agronomiDocumentationUploadBtn"
+          class="btn btn-primary staff-only hidden">
+          📷 Upload Foto
+        </button>
+
+        <input
+          type="file"
+          id="agronomiDocumentationInput"
+          accept="image/*"
+          multiple
+          hidden>
+      </div>
+
+      <div id="agronomiDocumentationInfo" class="documentation-info">
+        Dokumentasi kegiatan QC Agronomi.
+      </div>
+
+      <div class="documentation-search">
+        <input
+          type="text"
+          id="agronomiDocumentationSearch"
+          placeholder="🔎 Cari dokumentasi berdasarkan keterangan..."
+          autocomplete="off">
+      </div>
+
+      <div id="agronomiDocumentationGrid" class="documentation-grid">
+        <div class="documentation-empty">
+          Memuat dokumentasi...
+        </div>
+      </div>
     </div>
-
-    <button
-      type="button"
-      id="agronomiDocumentationUploadBtn"
-      class="primary-btn">
-      📷 Upload Foto
-    </button>
-
-    <input
-      type="file"
-      id="agronomiDocumentationInput"
-      accept="image/*"
-      multiple
-      hidden>
-  </div>
-
-  <div
-    id="agronomiDocumentationInfo"
-    class="documentation-info">
-    Dokumentasi kegiatan Agronomi.
-  </div>
-
-  <div class="documentation-search">
-    <input
-      type="text"
-      id="agronomiDocumentationSearch"
-      placeholder="🔎 Cari dokumentasi berdasarkan keterangan..."
-      autocomplete="off">
-  </div>
-
-  <!-- Tempat foto ditampilkan -->
-  <div
-    id="agronomiDocumentationGrid"
-    class="documentation-grid">
-
-    <div class="documentation-empty">
-      Belum ada dokumentasi foto.
-    </div>
-
-  </div>
-
-</div>
     
-
-
 
     <!-- =========================
          FOOTER
@@ -569,16 +556,6 @@
         </button>
 
       </form>
-
-
-      <div class="demo-credential">
-
-        Demo:
-        <b>petugas</b>
-        /
-        <b>qcbanana</b>
-
-      </div>
 
     </div>
 

@@ -4240,7 +4240,7 @@ function setupAuth() {
       const u = document.getElementById("username").value.trim();
       const p = document.getElementById("password").value;
       const er = document.getElementById("loginError");
-      if (u === "petugas" && p === "qcbanana") {
+      if (u === "Masukkan Username" && p === "Masukkan Password") {
         setStaff(true);
         closeLogin();
         lf.reset();
